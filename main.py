@@ -172,15 +172,16 @@ def main():
         # 建立 60 天的日期列表
         date_list = [today_taipei + timedelta(days=i) for i in range(DAYS_AHEAD)]
 
-        # 使用 10 個 Thread 並行抓取（約 3~5 秒抓完 60 天）
-        with ThreadPoolExecutor(max_workers=10) as executor:
-            future_to_date = {executor.submit(fetch_single_day, d, token): d for d in date_list}
-            for future in as_completed(future_to_date):
-                day_results = future.result()
-                for train_no, train_num, date_str in day_results:
-                    total_found += 1
-                    dir_key = "shun" if train_num % 2 == 0 else "ni"
-                    train_dates[dir_key][train_no].add(date_str)
+        # 將原本的 max_workers=10 改小，減少同時發送的請求數
+with ThreadPoolExecutor(max_workers=2) as executor:
+    future_to_date = {executor.submit(fetch_single_day, d, token): d for d in date_list}
+    for future in as_completed(future_to_date):
+        day_results = future.result()
+        for train_no, train_num, date_str in day_results:
+            total_found += 1
+            dir_key = "shun" if train_num % 2 == 0 else "ni"
+            train_dates[dir_key][train_no].add(date_str)
+
 
         print(f"\n[System] 資料抓取完成，總計 {total_found} 筆，準備發送 Telegram 訊息...")
 
