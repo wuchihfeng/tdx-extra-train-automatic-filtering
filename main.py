@@ -55,8 +55,8 @@ def fetch_single_day(date_obj, token):
     headers = {"authorization": f"Bearer {token}", "accept": "json"}
     
     results = []
-    # 最多重試 3 次，避免因為瞬間限速而漏掉資料
-    for attempt in range(3):
+    # 如果想更保險，可以把重試次數從 3 次提高到 5 次
+    for attempt in range(5):
         try:
             response = requests.get(api_url, headers=headers, timeout=8)
             if response.status_code == 200:
@@ -76,18 +76,23 @@ def fetch_single_day(date_obj, token):
                         if is_extra_train(train_type, note, train_num) and train_no not in EXCLUDE_TRAINS:
                             results.append((train_no, train_num, date_str))
                 print(f"[V] {api_date_str} 抓取成功，找到 {len(results)} 筆加班車")
+                
+                # 每次成功抓完一天的資料後，強制休息 1 秒再抓下一天
+                time.sleep(1.0)
                 return results
+                
             elif response.status_code == 429:
                 print(f"[-] {api_date_str} 觸發限速 (429)，等待重試...")
-                time.sleep(1.5 * (attempt + 1))
+                time.sleep(2.0 * (attempt + 1))
             else:
                 print(f"[X] {api_date_str} HTTP {response.status_code}")
                 break
         except Exception as e:
-            print(f"[!] {api_date_str} 發生例外 (嘗試 {attempt+1}/3): {e}")
-            time.sleep(1)
+            print(f"[!] {api_date_str} 發生例外 (嘗試 {attempt+1}/5): {e}")
+            time.sleep(2)
             
     return results
+
 
 
 def send_telegram_messages(bot_token, chat_id, messages):
@@ -117,14 +122,14 @@ def send_telegram_messages(bot_token, chat_id, messages):
 def format_telegram_report(start_str, end_str, total_found, train_dates):
     messages = []
     header = (
-        f"🚆 *臺鐵 60 天加班車彙整通報*\n"
-        f"📅 統計區間：`{start_str}` ~ `{end_str}`\n"
-        f"📊 總計抓取：*{total_found}* 筆加班車紀錄\n"
+        f"臺鐵 60 天內加班車彙整\n"
+        f"統計區間：`{start_str}` ~ `{end_str}`\n"
+        f"總計抓取：*{total_found}* 筆加班車紀錄\n"
         f"------------------------------------"
     )
     sections = [
-        ("🟢 順行（雙數車次）", "shun"),
-        ("🔵 逆行（單數車次）", "ni")
+        ("順行（雙數車次）", "shun"),
+        ("逆行（單數車次）", "ni")
     ]
     current_msg = header + "\n\n"
     
@@ -178,7 +183,7 @@ def main():
         date_list = [today_taipei + timedelta(days=i) for i in range(DAYS_AHEAD)]
 
         # 正確縮排的 ThreadPoolExecutor
-        with ThreadPoolExecutor(max_workers=2) as executor:
+        with ThreadPoolExecutor(max_workers=1) as executor:
             future_to_date = {executor.submit(fetch_single_day, d, token): d for d in date_list}
             for future in as_completed(future_to_date):
                 day_results = future.result()
