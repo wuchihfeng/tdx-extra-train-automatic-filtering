@@ -14,7 +14,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Setup Python
-        uses: actions/actions-python@v5
+        uses: actions/setup-python@v5  # <--- 這裡改回 setup-python
         with:
           python-version: '3.10'
 
