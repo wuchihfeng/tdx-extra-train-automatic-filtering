@@ -47,42 +47,47 @@ def is_extra_train(train_type, note, train_num):
         return True
     return "民國" in note or "加班" in note or "迴送" in note
 
-
 def fetch_single_day(date_obj, token):
-    """
-    單日抓取函式，供多執行緒平行呼叫
-    """
     date_str = date_obj.strftime("%m/%d")
     api_date_str = date_obj.strftime("%Y-%m-%d")
     api_url = f"https://tdx.transportdata.tw/api/basic/v3/Rail/TRA/DailyTrainTimetable/TrainDate/{api_date_str}?$format=JSON"
     headers = {"authorization": f"Bearer {token}", "accept": "json"}
     
     results = []
-    try:
-        response = requests.get(api_url, headers=headers, timeout=6)
-        if response.status_code == 200:
-            data = response.json()
-            for item in data.get("TrainTimetables", []):
-                train_info = item.get("TrainInfo", {})
-                train_no = train_info.get("TrainNo")
-                
-                if train_no and train_no.isdigit():
-                    train_num = int(train_no)
-                    raw_note = train_info.get("Note", "")
-                    note = raw_note.get("Zh_tw", "") if isinstance(raw_note, dict) else str(raw_note or "")
+    # 最多重試 3 次，避免因為瞬間限速而漏掉資料
+    for attempt in range(3):
+        try:
+            response = requests.get(api_url, headers=headers, timeout=8)
+            if response.status_code == 200:
+                data = response.json()
+                for item in data.get("TrainTimetables", []):
+                    train_info = item.get("TrainInfo", {})
+                    train_no = train_info.get("TrainNo")
                     
-                    train_type_dict = train_info.get("TrainTypeName", {})
-                    train_type = train_type_dict.get("Zh_tw", "") if isinstance(train_type_dict, dict) else str(train_type_dict)
-                    
-                    if is_extra_train(train_type, note, train_num) and train_no not in EXCLUDE_TRAINS:
-                        results.append((train_no, train_num, date_str))
-            print(f"[V] {api_date_str} 抓取成功，找到 {len(results)} 筆加班車")
-        else:
-            print(f"[X] {api_date_str} HTTP {response.status_code}")
-    except Exception as e:
-        print(f"[!] {api_date_str} 抓取逾時或失敗: {e}")
-        
+                    if train_no and train_no.isdigit():
+                        train_num = int(train_no)
+                        raw_note = train_info.get("Note", "")
+                        note = raw_note.get("Zh_tw", "") if isinstance(raw_note, dict) else str(raw_note or "")
+                        
+                        train_type_dict = train_info.get("TrainTypeName", {})
+                        train_type = train_type_dict.get("Zh_tw", "") if isinstance(train_type_dict, dict) else str(train_type_dict)
+                        
+                        if is_extra_train(train_type, note, train_num) and train_no not in EXCLUDE_TRAINS:
+                            results.append((train_no, train_num, date_str))
+                print(f"[V] {api_date_str} 抓取成功，找到 {len(results)} 筆加班車")
+                return results # 成功就直接返回
+            elif response.status_code == 429:
+                print(f"[-] {api_date_str} 觸發限速 (429)，等待重試...")
+                time.sleep(1.5 * (attempt + 1))
+            else:
+                print(f"[X] {api_date_str} HTTP {response.status_code}")
+                break
+        except Exception as e:
+            print(f"[!] {api_date_str} 發生例外 (嘗試 {attempt+1}/3): {e}")
+            time.sleep(1)
+            
     return results
+
 
 
 def send_telegram_messages(bot_token, chat_id, messages):
