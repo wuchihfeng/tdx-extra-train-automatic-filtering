@@ -15,10 +15,9 @@ CLIENT_SECRET = "d3d769d7-020e-4c0d-a54b-410cb134e7c5"
 
 TG_BOT_TOKEN = "8801556108:AAGoDW6LtGxvmvElS0ZBEYHKGU5J_XVbY6Q"
 TG_CHAT_ID = "8874687159"
-# 你的 GitHub Pages 網址（依你的 GitHub 帳號與 Repo 名稱修改）
-PAGES_URL = "https://wuchihfeng.github.io/TDX-Special-Train-Automatic-filtering/"
+PAGES_URL = "https://wuchihfeng.github.io/tdx-train-automatic-filtering/"
 
-# 抓取天數：改成 60 天
+# 抓取天數：60 天
 DAYS_AHEAD = 60
 
 KEY_STATIONS = ["臺北", "板橋", "桃園", "新竹", "苗栗", "臺中", "彰化", "雲林", "嘉義", "臺南", "高雄", "大甲", "花蓮", "臺東", "知本", "屏東", "潮州", "枋寮"]
@@ -93,171 +92,173 @@ def generate_html(categorized_dict, start_str, end_str, total_found):
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>臺鐵 60 天加班車查詢系統</title>
+    <!-- Bootstrap 5 CSS CDN -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <style>
-        :root {{
-            --primary: #0056b3;
-            --bg: #f4f6f9;
-            --card-bg: #ffffff;
-            --text: #333333;
-        }}
         body {{
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-            background-color: var(--bg);
-            color: var(--text);
-            margin: 0;
-            padding: 12px;
+            background-color: #f8f9fa;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Microsoft JhengHei", sans-serif;
         }}
-        .header {{
-            text-align: center;
-            background: linear-gradient(135deg, #0056b3, #003366);
-            color: white;
-            padding: 18px 10px;
-            border-radius: 12px;
-            margin-bottom: 15px;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.12);
+        .card-header-custom {{
+            background-color: #003366;
+            color: #ffffff;
         }}
-        .header h1 {{ margin: 0 0 6px 0; font-size: 1.4rem; }}
-        .header p {{ margin: 0; opacity: 0.9; font-size: 0.85rem; }}
-        .tab-buttons {{
-            display: flex;
-            gap: 8px;
-            margin-bottom: 15px;
+        .badge-direction {{
+            font-size: 0.85rem;
         }}
-        .tab-btn {{
-            flex: 1;
-            padding: 10px;
-            border: none;
-            background: #e2e8f0;
-            color: #4a5568;
-            font-weight: bold;
-            border-radius: 8px;
-            cursor: pointer;
-            font-size: 0.95rem;
-            transition: 0.2s;
+        .badge-shun {{
+            background-color: #198754;
         }}
-        .tab-btn.active {{
-            background: var(--primary);
-            color: white;
+        .badge-ni {{
+            background-color: #0d6efd;
         }}
-        .series-card {{
-            background: var(--card-bg);
-            border-radius: 10px;
-            padding: 14px;
-            margin-bottom: 12px;
-            box-shadow: 0 2px 6px rgba(0,0,0,0.06);
-            border-left: 5px solid var(--primary);
-        }}
-        .series-title {{
-            font-size: 1.15rem;
-            font-weight: bold;
-            color: var(--primary);
-            margin-bottom: 8px;
-            border-bottom: 1px solid #edf2f7;
-            padding-bottom: 4px;
-        }}
-        .train-item {{
-            margin-bottom: 10px;
-            padding-bottom: 8px;
-            border-bottom: 1px dashed #e2e8f0;
-        }}
-        .train-item:last-child {{ border-bottom: none; margin-bottom: 0; }}
-        .train-meta {{
-            font-weight: bold;
-            margin-bottom: 4px;
-            font-size: 0.95rem;
-        }}
-        .badge {{
+        .stop-badge {{
+            margin-right: 4px;
+            margin-bottom: 6px;
             display: inline-block;
-            padding: 2px 6px;
-            border-radius: 4px;
-            font-size: 0.75rem;
-            background: #edf2f7;
-            color: #4a5568;
-            margin-left: 4px;
         }}
-        .stops-container {{
-            background: #f8fafc;
-            padding: 8px 10px;
+        .key-stops-list {{
+            background-color: #f1f3f5;
             border-radius: 6px;
-            font-size: 0.82rem;
-            margin-top: 6px;
-            line-height: 1.45;
-            border: 1px solid #e2e8f0;
+            padding: 8px 12px;
+            list-style-type: none;
+            margin-bottom: 0;
         }}
-        .key-stops {{
-            color: #c53030;
-            font-weight: bold;
-            margin-bottom: 4px;
+        .key-stops-list li {{
+            padding: 2px 0;
+            font-size: 0.88rem;
         }}
     </style>
 </head>
 <body>
-    <div class="header">
-        <h1>🚆 臺鐵加班車資訊網 (60 天觀測)</h1>
-        <p>統計區間：{start_str} ~ {end_str} （共 {total_found} 筆）</p>
+
+<div class="container my-4">
+    <!-- Header 區域 -->
+    <div class="text-center p-4 mb-4 rounded-3 text-white" style="background: linear-gradient(135deg, #003366, #0056b3);">
+        <h2 class="fw-bold mb-1">🚆 臺鐵加班車資訊網 (60 天觀測)</h2>
+        <p class="mb-0 opacity-75">統計區間：{start_str} ~ {end_str} （共計 {total_found} 筆加班車）</p>
     </div>
 
-    <div class="tab-buttons">
-        <button class="tab-btn active" onclick="switchTab('順行（雙數車次）')">順行（雙數）</button>
-        <button class="tab-btn" onclick="switchTab('逆行（單數車次）')">逆行（單數）</button>
-    </div>
+    <!-- 頁籤按鈕 -->
+    <ul class="nav nav-pills nav-justified mb-4" id="pills-tab" role="tablist">
+        <li class="nav-item" role="presentation">
+            <button class="nav-link active fw-bold fs-5" id="tab-shun" onclick="switchTab('順行（雙數車次）')">🟢 順行（雙數車次）</button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link fw-bold fs-5" id="tab-ni" onclick="switchTab('逆行（單數車次）')">🔵 逆行（單數車次）</button>
+        </li>
+    </ul>
 
-    <div id="content"></div>
+    <!-- 主要資料卡片區域 -->
+    <div id="content" class="row g-4"></div>
+</div>
 
-    <script>
-        const rawData = {json_data};
-        let currentTab = '順行（雙數車次）';
+<script>
+    const rawData = {json_data};
+    let currentTab = '順行（雙數車次）';
 
-        function switchTab(tabName) {{
-            currentTab = tabName;
-            document.querySelectorAll('.tab-btn').forEach(btn => {{
-                btn.classList.toggle('active', btn.innerText.includes(tabName.slice(0, 2)));
-            }});
-            render();
+    function switchTab(tabName) {{
+        currentTab = tabName;
+        document.getElementById('tab-shun').classList.toggle('active', tabName.includes('順行'));
+        document.getElementById('tab-ni').classList.toggle('active', tabName.includes('逆行'));
+        render();
+    }}
+
+    function render() {{
+        const contentDiv = document.getElementById('content');
+        const data = rawData[currentTab] || {{}};
+        let html = '';
+
+        const sortedKeys = Object.keys(data).sort((a, b) => parseInt(a) - parseInt(b));
+
+        if (sortedKeys.length === 0) {{
+            contentDiv.innerHTML = '<div class="col-12 text-center text-muted my-5"><h5>此方向當前無加班車資料</h5></div>';
+            return;
         }}
 
-        function render() {{
-            const contentDiv = document.getElementById('content');
-            const data = rawData[currentTab] || {{}};
-            let html = '';
+        sortedKeys.forEach(seriesKey => {{
+            const items = data[seriesKey];
+            items.forEach(item => {{
+                const isShun = currentTab.includes('順行');
+                const stopsArray = item.all_stops ? item.all_stops.split('、') : [];
 
-            const sortedKeys = Object.keys(data).sort((a, b) => parseInt(a) - parseInt(b));
+                // 組合 key stops 列表
+                let keyStopsHtml = '';
+                if (item.key_stops && item.key_stops.length > 0) {{
+                    keyStopsHtml = item.key_stops.map(s => `<li>• ${{s.name}} | 時間: ${{s.time}}</li>`).join('');
+                }}
 
-            if (sortedKeys.length === 0) {{
-                contentDiv.innerHTML = '<div class="series-card" style="text-align:center;color:#718096;">此方向無加班車資料</div>';
-                return;
-            }}
-
-            sortedKeys.forEach(seriesKey => {{
-                html += `<div class="series-card"><div class="series-title">【 ${{seriesKey}} 】</div>`;
-                
-                data[seriesKey].forEach(item => {{
-                    let keyStopsText = item.key_stops.map(s => `${{s.name}}: ${{s.time}}`).join(' | ');
-                    
-                    html += `
-                        <div class="train-item">
-                            <div class="train-meta">
-                                📅 ${{item.date}} | ${{item.start_stn}} ➔ ${{item.end_stn}}
-                                <span class="badge">${{item.train_type}}</span>
-                                <span class="badge" style="background:#e6fffa;color:#234e52;">${{item.line_type}}</span>
-                            </div>
-                            ${{item.note_str ? `<div style="font-size:0.82rem;color:#718096;">💬 ${{item.note_str}}</div>` : ''}}
-                            <div class="stops-container">
-                                ${{keyStopsText ? `<div class="key-stops">📍 定型點時刻：${{keyStopsText}}</div>` : ''}}
-                                <div style="color:#4a5568;">🔤 沿途停靠：${{item.all_stops}}</div>
-                            </div>
-                        </div>
-                    `;
+                // 組合完整停靠站標籤
+                let stopsBadgesHtml = '';
+                stopsArray.forEach((stop, idx) => {{
+                    if (idx === 0) {{
+                        stopsBadgesHtml += `<span class="badge bg-success stop-badge">${{stop}} (起點)</span>`;
+                    }} else if (idx === stopsArray.length - 1) {{
+                        stopsBadgesHtml += `<span class="badge bg-danger stop-badge">${{stop}} (終點)</span>`;
+                    }} else {{
+                        stopsBadgesHtml += `<span class="badge bg-light text-dark border stop-badge">${{stop}}</span>`;
+                    }}
                 }});
 
-                html += '</div>';
+                html += `
+                <div class="col-12 col-lg-6">
+                    <div class="card h-100 shadow-sm border-0">
+                        <!-- 卡片標頭 -->
+                        <div class="card-header card-header-custom d-flex justify-content-between align-items-center">
+                            <div>
+                                <span class="badge badge-direction ${{isShun ? 'badge-shun' : 'badge-ni'}} me-2">
+                                    ${{isShun ? '順行' : '逆行'}}
+                                </span>
+                                <strong class="fs-5">${{seriesKey}}</strong>
+                            </div>
+                            <span class="badge bg-warning text-dark fs-6">${{item.date}}</span>
+                        </div>
+
+                        <div class="card-body">
+                            <!-- 基本行駛資訊 -->
+                            <div class="mb-3">
+                                <p class="mb-1"><strong>📌 營運區間：</strong><span class="text-primary fw-bold">${{item.start_stn}} ➔ ${{item.end_stn}}</span></p>
+                                <p class="mb-1"><strong>🚆 車種車型：</strong>${{item.train_type}}</p>
+                                ${{item.line_type ? `<p class="mb-1"><strong>🗺️ 幹線路線：</strong><span class="badge bg-secondary">${{item.line_type}}</span></p>` : ''}}
+                            </div>
+
+                            <!-- 備註 -->
+                            ${{item.note_str ? `
+                            <div class="alert alert-info py-2 px-3 mb-3 fs-6" role="alert">
+                                <strong>ℹ️ 備註：</strong>${{item.note_str}}
+                            </div>` : ''}}
+
+                            <!-- 重點停靠站開車時間 -->
+                            ${{keyStopsHtml ? `
+                            <div class="mb-3">
+                                <h6 class="fw-bold text-secondary mb-2">⏱️ 定型點 / 重點站時刻：</h6>
+                                <ul class="key-stops-list">
+                                    ${{keyStopsHtml}}
+                                </ul>
+                            </div>` : ''}}
+
+                            <!-- 完整停靠站點 -->
+                            ${{stopsBadgesHtml ? `
+                            <div>
+                                <h6 class="fw-bold text-secondary mb-2">📍 沿途停靠站（共 ${{stopsArray.length}} 站）：</h6>
+                                <div>
+                                    ${{stopsBadgesHtml}}
+                                </div>
+                            </div>` : ''}}
+                        </div>
+                    </div>
+                </div>
+                `;
             }});
+        }});
 
-            contentDiv.innerHTML = html;
-        }}
+        contentDiv.innerHTML = html;
+    }}
 
-        render();
-    </script>
+    render();
+</script>
+<!-- Bootstrap 5 JS Bundle -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/bootstrap.bundle.min.js"></script>
 </body>
 </html>
 """
@@ -265,7 +266,6 @@ def generate_html(categorized_dict, start_str, end_str, total_found):
 
 
 def main():
-    # 建立具備自動重試功能的 HTTP Session
     session = requests.Session()
     retries = Retry(total=3, backoff_factor=1, status_forcelist=[500, 502, 503, 504])
     session.mount('https://', HTTPAdapter(max_retries=retries))
@@ -357,7 +357,7 @@ def main():
                 print(f"[{day_count}/{DAYS_AHEAD}] {date_str} 發生例外: {req_err}")
             
             curr_dt += timedelta(days=1)
-            time.sleep(0.15)  # 微幅間隔，防觸發 TDX Rate Limit
+            time.sleep(0.15)  # 防觸發 TDX Rate Limit
 
         # 1. 寫出網頁檔 index.html
         html_code = generate_html(categorized_dict, start_str, end_str, total_found)
