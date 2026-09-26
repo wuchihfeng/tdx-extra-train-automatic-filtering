@@ -55,10 +55,14 @@ def fetch_single_day(date_obj, token):
     headers = {"authorization": f"Bearer {token}", "accept": "json"}
     
     results = []
-    # 如果想更保險，可以把重試次數從 3 次提高到 5 次
-    for attempt in range(5):
+    attempt = 0
+    
+    # 無限迴圈，直到成功取得該日資料為止
+    while True:
         try:
+            attempt += 1
             response = requests.get(api_url, headers=headers, timeout=8)
+            
             if response.status_code == 200:
                 data = response.json()
                 for item in data.get("TrainTimetables", []):
@@ -75,21 +79,22 @@ def fetch_single_day(date_obj, token):
                         
                         if is_extra_train(train_type, note, train_num) and train_no not in EXCLUDE_TRAINS:
                             results.append((train_no, train_num, date_str))
+                            
                 print(f"[V] {api_date_str} 抓取成功，找到 {len(results)} 筆加班車")
-                
-                # 每次成功抓完一天的資料後，強制休息 1 秒再抓下一天
-                time.sleep(1.0)
+                time.sleep(1.0)  # 成功後乖乖休息 1 秒，維護禮貌
                 return results
                 
             elif response.status_code == 429:
-                print(f"[-] {api_date_str} 觸發限速 (429)，等待重試...")
-                time.sleep(2.0 * (attempt + 1))
+                print(f"[-] {api_date_str} 觸發限速 (429)，無限重試中 (第 {attempt} 次)...")
+                time.sleep(3.0)  # 遇到限速時稍微多等 3 秒再挑戰
             else:
-                print(f"[X] {api_date_str} HTTP {response.status_code}")
-                break
+                print(f"[X] {api_date_str} HTTP {response.status_code}，重試中...")
+                time.sleep(3.0)
+                
         except Exception as e:
-            print(f"[!] {api_date_str} 發生例外 (嘗試 {attempt+1}/5): {e}")
-            time.sleep(2)
+            print(f"[!] {api_date_str} 發生例外 (第 {attempt} 次): {e}，重試中...")
+            time.sleep(3.0)
+
             
     return results
 
