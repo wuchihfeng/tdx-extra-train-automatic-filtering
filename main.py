@@ -10,13 +10,12 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 sys.stdout.reconfigure(line_buffering=True)
 
 # ==========================================
-# 個人自用設定區（優先讀取 GitHub Secrets 環境變數）
+# 從 GitHub Secrets 讀取設定（強制要求，不提供預設值）
 # ==========================================
-CLIENT_ID = os.environ.get("TDX_CLIENT_ID", "wuzhifeng1001123-43893dc2-86ec-44f7")
-CLIENT_SECRET = os.environ.get("TDX_CLIENT_SECRET", "d3d769d7-020e-4c0d-a54b-410cb134e7c5")
-
-TG_BOT_TOKEN = os.environ.get("TG_BOT_TOKEN", "8801556108:AAGoDW6LtGxvmvElS0ZBEYHKGU5J_XVbY6Q")
-TG_CHAT_ID = os.environ.get("TG_CHAT_ID", "8874687159")
+CLIENT_ID = os.environ.get("TDX_CLIENT_ID")
+CLIENT_SECRET = os.environ.get("TDX_CLIENT_SECRET")
+TG_BOT_TOKEN = os.environ.get("TG_BOT_TOKEN")
+TG_CHAT_ID = os.environ.get("TG_CHAT_ID")
 
 DAYS_AHEAD = 60
 EXCLUDE_TRAINS = []
@@ -78,16 +77,24 @@ def fetch_single_day(date_obj, token):
                         train_type = train_type_dict.get("Zh_tw", "") if isinstance(train_type_dict, dict) else str(train_type_dict)
                         
                         if is_extra_train(train_type, note, train_num) and train_no not in EXCLUDE_TRAINS:
-                            # 解析起點與終點站
+                            # 解析起點站、終點站以及對應的開車/到達時間
                             stop_times = item.get("StopTimes", [])
                             start_station, end_station = "", ""
-                            if stop_times:
-                                s_name = stop_times[0].get("StationName", {})
-                                start_station = s_name.get("Zh_tw", "") if isinstance(s_name, dict) else str(s_name)
-                                e_name = stop_times[-1].get("StationName", {})
-                                end_station = e_name.get("Zh_tw", "") if isinstance(e_name, dict) else str(e_name)
+                            start_time, end_time = "", ""
                             
-                            results.append((train_no, train_num, date_str, start_station, end_station))
+                            if stop_times:
+                                first_stop = stop_times[0]
+                                last_stop = stop_times[-1]
+                                
+                                s_name = first_stop.get("StationName", {})
+                                start_station = s_name.get("Zh_tw", "") if isinstance(s_name, dict) else str(s_name)
+                                start_time = first_stop.get("DepartureTime", "")[:5] # 取 HH:MM
+                                
+                                e_name = last_stop.get("StationName", {})
+                                end_station = e_name.get("Zh_tw", "") if isinstance(e_name, dict) else str(e_name)
+                                end_time = last_stop.get("ArrivalTime", "")[:5] # 取 HH:MM
+                            
+                            results.append((train_no, train_num, date_str, start_station, start_time, end_station, end_time))
                             
                 print(f"[V] {api_date_str} 抓取成功，找到 {len(results)} 筆加班車")
                 time.sleep(1.0)  # 成功後乖乖休息 1 秒，維護禮貌
@@ -106,8 +113,8 @@ def fetch_single_day(date_obj, token):
 
 
 def send_telegram_messages(bot_token, chat_id, messages):
-    if not bot_token or "你的_" in bot_token:
-        print("[TG Warning] 未設定正確的 Telegram Bot Token，跳過發送。")
+    if not bot_token:
+        print("[TG Warning] 未設定 Telegram Bot Token，跳過發送。")
         return
     url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
     
@@ -172,6 +179,17 @@ def format_telegram_report(start_str, end_str, total_found, train_dates):
 
 
 def main():
+    # 檢查必要環境變數是否齊全
+    missing_vars = []
+    if not CLIENT_ID: missing_vars.append("TDX_CLIENT_ID")
+    if not CLIENT_SECRET: missing_vars.append("TDX_CLIENT_SECRET")
+    if not TG_BOT_TOKEN: missing_vars.append("TG_BOT_TOKEN")
+    if not TG_CHAT_ID: missing_vars.append("TG_CHAT_ID")
+    
+    if missing_vars:
+        print(f"[Fatal Error] 缺少必要的環境變數 (GitHub Secrets): {', '.join(missing_vars)}")
+        sys.exit(1)
+
     tz_taipei = timezone(timedelta(hours=8))
     today_taipei = datetime.now(tz_taipei).date()
     end_date_taipei = today_taipei + timedelta(days=DAYS_AHEAD - 1)
@@ -198,12 +216,15 @@ def main():
             future_to_date = {executor.submit(fetch_single_day, d, token): d for d in date_list}
             for future in as_completed(future_to_date):
                 day_results = future.result()
-                for train_no, train_num, date_str, start_station, end_station in day_results:
+                for train_no, train_num, date_str, start_station, start_time, end_station, end_time in day_results:
                     total_found += 1
                     dir_key = "shun" if train_num % 2 == 0 else "ni"
                     
                     if train_no not in train_dates[dir_key]:
-                        route_str = f"{start_station} -> {end_station}" if start_station and end_station else "未知區間"
+                        start_part = f"{start_station} {start_time}" if start_time else start_station
+                        end_part = f"{end_station} {end_time}" if end_time else end_station
+                        route_str = f"{start_part} -> {end_part}" if start_station and end_station else "未知區間"
+                        
                         train_dates[dir_key][train_no] = {
                             "dates": set(),
                             "route": route_str
@@ -217,6 +238,7 @@ def main():
 
     except Exception as e:
         print(f"[Fatal Error] 執行過程發生錯誤: {e}")
+        sys.exit(1)
 
 
 if __name__ == "__main__":
