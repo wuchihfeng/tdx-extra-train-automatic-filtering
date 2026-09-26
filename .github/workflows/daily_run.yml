@@ -6,19 +6,8 @@ on:
     - cron: '0 22 * * *'
   workflow_dispatch: # 支援在 GitHub 介面上隨時手動點擊執行
 
-# 設定部署 GitHub Pages 所需的 Token 權限
-permissions:
-  contents: read
-  pages: write
-  id-token: write
-
-# 確保同一時間只有一個部署任務在執行
-concurrency:
-  group: 'pages'
-  cancel-in-progress: true
-
 jobs:
-  build-and-deploy:
+  run-bot:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Repository
@@ -34,18 +23,6 @@ jobs:
           python -m pip install --upgrade pip
           pip install requests urllib3
 
-      - name: Run Main Script (Fetch 60 Days Data)
+      - name: Run Main Script (Fetch 60 Days Data & Send TG)
         run: |
-          python tdx_bot_and_web.py
-
-      - name: Setup GitHub Pages
-        uses: actions/configure-pages@v4
-
-      - name: Upload Pages Artifact
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: '.' # 將產生的 index.html 包裹上傳
-
-      - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v4
+          python main.py
