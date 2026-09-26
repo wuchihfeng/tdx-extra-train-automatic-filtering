@@ -39,11 +39,12 @@ def get_tdx_token(client_id, client_secret):
         raise Exception(f"取得 Token 時發生連線錯誤: {e}")
 
 
-def is_extra_train(train_type, note):
-    if "專開列車" in train_type:
+def is_extra_train(train_type, note, train_num):
+    # 只要車種包含「專開」，直接排除
+    if "專開" in train_type:
         return False
-    # 改為依據備註是否包含「民國」來判斷
-    return "民國" in note
+    # 符合以下條件之一：備註有「民國」 或者 車次介於 6000~6999 之間
+    return "民國" in note or (6000 <= train_num <= 6999)
 
 
 def fetch_single_day(date_obj, token):
@@ -75,7 +76,7 @@ def fetch_single_day(date_obj, token):
                         train_type_dict = train_info.get("TrainTypeName", {})
                         train_type = train_type_dict.get("Zh_tw", "") if isinstance(train_type_dict, dict) else str(train_type_dict)
                         
-                        if is_extra_train(train_type, note) and train_no not in EXCLUDE_TRAINS:
+                        if is_extra_train(train_type, note, train_num) and train_no not in EXCLUDE_TRAINS:
                             # 判斷備註中是「行駛」還是「停駛」
                             status_sign = ""
                             if "行駛" in note:
