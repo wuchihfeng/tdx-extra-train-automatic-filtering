@@ -78,7 +78,16 @@ def fetch_single_day(date_obj, token):
                         train_type = train_type_dict.get("Zh_tw", "") if isinstance(train_type_dict, dict) else str(train_type_dict)
                         
                         if is_extra_train(train_type, note, train_num) and train_no not in EXCLUDE_TRAINS:
-                            results.append((train_no, train_num, date_str))
+                            # 解析起點與終點站
+                            stop_times = item.get("StopTimes", [])
+                            start_station, end_station = "", ""
+                            if stop_times:
+                                s_name = stop_times[0].get("StationName", {})
+                                start_station = s_name.get("Zh_tw", "") if isinstance(s_name, dict) else str(s_name)
+                                e_name = stop_times[-1].get("StationName", {})
+                                end_station = e_name.get("Zh_tw", "") if isinstance(e_name, dict) else str(e_name)
+                            
+                            results.append((train_no, train_num, date_str, start_station, end_station))
                             
                 print(f"[V] {api_date_str} 抓取成功，找到 {len(results)} 筆加班車")
                 time.sleep(1.0)  # 成功後乖乖休息 1 秒，維護禮貌
@@ -94,10 +103,6 @@ def fetch_single_day(date_obj, token):
         except Exception as e:
             print(f"[!] {api_date_str} 發生例外 (第 {attempt} 次): {e}，重試中...")
             time.sleep(3.0)
-
-            
-    return results
-
 
 
 def send_telegram_messages(bot_token, chat_id, messages):
@@ -147,9 +152,11 @@ def format_telegram_report(start_str, end_str, total_found, train_dates):
         sorted_train_nos = sorted(data_dict.keys(), key=lambda x: int(x))
         
         for train_no in sorted_train_nos:
-            dates = sorted(list(data_dict[train_no]))
+            info = data_dict[train_no]
+            dates = sorted(list(info["dates"]))
             dates_str = ", ".join(dates)
-            line = f"• *{train_no}次*：{dates_str}\n"
+            route = info["route"]
+            line = f"• *{train_no}次* ({route})：{dates_str}\n"
             
             if len(current_msg) + len(line) > 3800:
                 messages.append(current_msg)
@@ -173,8 +180,8 @@ def main():
     end_str = end_date_taipei.strftime("%Y-%m-%d")
 
     train_dates = {
-        "shun": defaultdict(set),
-        "ni": defaultdict(set)
+        "shun": {},
+        "ni": {}
     }
     total_found = 0
 
@@ -187,15 +194,21 @@ def main():
         # 建立 60 天的日期列表
         date_list = [today_taipei + timedelta(days=i) for i in range(DAYS_AHEAD)]
 
-        # 正確縮排的 ThreadPoolExecutor
         with ThreadPoolExecutor(max_workers=1) as executor:
             future_to_date = {executor.submit(fetch_single_day, d, token): d for d in date_list}
             for future in as_completed(future_to_date):
                 day_results = future.result()
-                for train_no, train_num, date_str in day_results:
+                for train_no, train_num, date_str, start_station, end_station in day_results:
                     total_found += 1
                     dir_key = "shun" if train_num % 2 == 0 else "ni"
-                    train_dates[dir_key][train_no].add(date_str)
+                    
+                    if train_no not in train_dates[dir_key]:
+                        route_str = f"{start_station} -> {end_station}" if start_station and end_station else "未知區間"
+                        train_dates[dir_key][train_no] = {
+                            "dates": set(),
+                            "route": route_str
+                        }
+                    train_dates[dir_key][train_no]["dates"].add(date_str)
 
         print(f"\n[System] 資料抓取完成，總計 {total_found} 筆，準備發送 Telegram 訊息...")
 
