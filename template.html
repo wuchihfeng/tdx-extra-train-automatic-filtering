@@ -1,0 +1,427 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>臺鐵加班車資訊查詢</title>
+  <style>
+  /* 1. 線上引入思源黑體 (Noto Sans TC) 與 思源等寬數字 (Noto Sans Mono)
+   ========================================================================== */
+  @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+Mono:wght@400;700&family=Noto+Sans+TC:wght@400;500;700&display=swap');
+
+  /* 2. 全系統、全元件強制套用一致字體
+     ========================================================================== */
+  *, *::before, *::after, body, input, button, select, textarea {
+      font-family: 'Noto Sans TC', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
+  }
+
+  /* 3. 鐵道計算器數據核心區：疊加等寬字體（防止數字跳動）*/
+  #mainSpeed, #mainAccel, .helper-inputs input, #trainCode {
+      font-family: 'Noto Sans Mono', 'Noto Sans TC', monospace !important;
+  }
+
+  /* 顏色變數設定（預設為深色模式） */
+  :root {
+    --bg-color: #121212;
+    --card-bg: #1e1e1e;
+    --text-color: #e0e0e0;
+    --text-main: #ffffff;
+    --text-muted: #aaa;
+    --text-hint: #888;
+    --border-color: #333;
+    
+    --accent-color: #ff9800;
+    --accent-hover: #e68a00;
+    --accel-accent: #e65c00;
+    --accel-hover: #cc5200;
+    --calc-btn-text: #ffffff; 
+    
+    --input-bg: #252525;
+    --input-border: #444;
+    --parts-bg: #252525;
+    
+    --helper-bg: #2a2a2a;
+    --helper-border: #555;
+    
+    --result-bg: #121212;
+    --result-border: #222; 
+    
+    --danger-bg: #442222;
+    --danger-text: #ff6666;
+    --danger-border: #663333;
+    
+    --tag-bg: #2a2a2a;
+    
+    --toggle-btn-bg: #ffffff;
+    --toggle-btn-text: #121212;
+    
+    --axis-text-color: #a0aec0;
+    --table-hover: #2a2a2a;
+  }
+
+  /* 淺色模式主題變數 */
+  body.light-mode {
+    --bg-color: #f5f5f7;
+    --card-bg: #ffffff;
+    --text-color: #333333;
+    --text-main: #111111;
+    --text-muted: #555555;
+    --text-hint: #777777;
+    --border-color: #dddddd;
+    
+    --accent-color: #e67e22; 
+    --accent-hover: #d35400;
+    --accel-accent: #d35400;
+    --accel-hover: #ba4a00;
+    --calc-btn-text: #ffffff; 
+    
+    --input-bg: #fdfdfd;
+    --input-border: #cccccc;
+    --parts-bg: #f9f9f9;
+    
+    --helper-bg: #f5f5f9;
+    --helper-border: #cccccc;
+    
+    --result-bg: #fafafa;
+    --result-border: #dddddd; 
+    
+    --danger-bg: #fde8e8;
+    --danger-text: #e02424;
+    --danger-border: #f8b4b4;
+    
+    --tag-bg: #fff3e0;
+    
+    --toggle-btn-bg: #111111;
+    --toggle-btn-text: #ffffff;
+    
+    --axis-text-color: #4a5568;
+    --table-hover: #f1f5f9;
+  }
+
+  /* 基礎設定 */
+  * { box-sizing: border-box; }
+
+  body { 
+    margin: 0; 
+    background: var(--bg-color); 
+    color: var(--text-color); 
+    display: flex; 
+    justify-content: center; 
+    padding: 12px; 
+    transition: background 0.3s, color 0.3s;
+  }
+
+  /* 主容器 */
+  .calculator { 
+    background: var(--card-bg); 
+    padding: 20px; 
+    border-radius: 16px; 
+    width: 100%; 
+    max-width: 800px; 
+    border: 1px solid var(--border-color); 
+    box-shadow: 0 12px 30px rgba(0,0,0,0.15); 
+    transition: background 0.3s, border-color 0.3s;
+  }
+
+  /* 頂部控制列 */
+  .top-controls {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+  }
+
+  .theme-toggle-btn {
+    background: var(--toggle-btn-bg);
+    color: var(--toggle-btn-text);
+    border: none;
+    padding: 6px 14px;
+    border-radius: 20px;
+    font-size: 0.75rem;
+    cursor: pointer;
+    font-weight: bold;
+    transition: all 0.2s ease;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+  }
+
+  h1 { 
+    font-size: clamp(1.1rem, 4vw, 1.35rem); 
+    color: var(--accent-color); 
+    text-align: center; 
+    margin: 0 0 20px; 
+  }
+
+  /* 統計區塊 */
+  .stats-bar {
+    display: flex;
+    gap: 15px;
+    margin-bottom: 20px;
+  }
+
+  .stat-card {
+    flex: 1;
+    background: var(--parts-bg);
+    border: 1px solid var(--border-color);
+    padding: 15px;
+    border-radius: 8px;
+  }
+
+  .stat-card .label {
+    font-size: 0.85rem;
+    color: var(--text-hint);
+  }
+
+  .stat-card .value {
+    font-size: 1.5rem;
+    font-weight: bold;
+    color: var(--accent-color);
+    margin-top: 5px;
+  }
+
+  /* 篩選列 */
+  .filter-bar {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 20px;
+  }
+
+  .filter-bar select, .filter-bar input {
+    background: var(--input-bg);
+    color: var(--text-main);
+    border: 1px solid var(--input-border);
+    padding: 10px;
+    border-radius: 6px;
+    font-size: 0.95rem;
+  }
+
+  .filter-bar select { flex: 1; }
+  .filter-bar input { flex: 2; }
+
+  /* 歷史紀錄/表格外層 */
+  .record-table-wrapper {
+    width: 100%;
+    overflow-x: auto;
+    border-radius: 8px;
+    border: 1px solid var(--border-color);
+    background: var(--result-bg);
+  }
+
+  .record-table {
+    width: 100%;
+    border-collapse: collapse;
+    text-align: left;
+    font-size: 14px;
+    white-space: nowrap;
+  }
+
+  .record-table th {
+    padding: 12px 16px;
+    border-bottom: 2px solid var(--border-color);
+    color: var(--text-muted);
+    font-weight: 600;
+  }
+
+  .record-table td {
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border-color);
+  }
+
+  .record-table tbody tr:hover {
+    background-color: var(--table-hover);
+  }
+
+  .record-data-cell {
+    font-family: 'Noto Sans Mono', monospace !important;
+    font-weight: 700;
+    font-size: 15px;
+    color: var(--text-main);
+  }
+
+  /* 車種標籤 */
+  .train-badge {
+    padding: 3px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: bold;
+    display: inline-block;
+  }
+
+  .badge-emu3000 { background: rgba(56, 189, 248, 0.2); color: #38bdf8; border: 1px solid #38bdf8; }
+  .badge-emu900 { background: rgba(74, 222, 128, 0.2); color: #4ade80; border: 1px solid #4ade80; }
+  .badge-pp { background: rgba(249, 115, 22, 0.2); color: #f97316; border: 1px solid #f97316; }
+  .badge-other { background: rgba(148, 163, 184, 0.2); color: #94a3b8; border: 1px solid #94a3b8; }
+
+  /* 分頁控制 */
+  .pagination-container {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 15px;
+      margin-top: 15px;
+  }
+
+  .btn-page {
+      background: var(--input-bg);
+      color: var(--text-main);
+      border: 1px solid var(--input-border);
+      padding: 6px 14px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: bold;
+      transition: all 0.2s ease;
+  }
+
+  .light-mode .btn-page {
+      background: rgba(0, 0, 0, 0.05);
+      color: var(--text-main);
+      border: 1px solid var(--border-color);
+  }
+  </style>
+</head>
+<body>
+
+  <div class="calculator">
+    <div class="top-controls">
+      <div id="updateTime" style="font-size: 0.8rem; color: var(--text-hint);">最後更新時間：載入中...</div>
+      <button class="theme-toggle-btn" id="themeBtn" onclick="toggleTheme()">淺色模式</button>
+    </div>
+
+    <h1>臺鐵加班車資訊查詢</h1>
+
+    <div class="stats-bar">
+      <div class="stat-card">
+        <div class="label">總加班車次數</div>
+        <div class="value" id="totalCount">0</div>
+      </div>
+      <div class="stat-card">
+        <div class="label">今日加班車</div>
+        <div class="value" id="todayCount">0</div>
+      </div>
+    </div>
+
+    <div class="filter-bar">
+      <select id="dateFilter" onchange="filterData()">
+        <option value="ALL">全部日期</option>
+      </select>
+      <input type="text" id="searchInput" placeholder="搜尋車次、起訖站、車種..." oninput="filterData()">
+    </div>
+
+    <div class="record-table-wrapper">
+      <table class="record-table">
+        <thead>
+          <tr>
+            <th>開行日期</th>
+            <th>車次</th>
+            <th>車種</th>
+            <th>經由 / 區間</th>
+            <th>發車時間</th>
+            <th>抵達時間</th>
+          </tr>
+        </thead>
+        <tbody id="trainTableBody">
+        </tbody>
+      </table>
+    </div>
+
+    <div class="pagination-container">
+      <button class="btn-page" onclick="changePage(-1)">◀ 上一頁</button>
+      <span id="pageInfo" style="font-size: 0.85rem; color: var(--text-hint);">第 1 頁</span>
+      <button class="btn-page" onclick="changePage(1)">下一頁 ▶</button>
+    </div>
+  </div>
+
+  <script>
+    const TODAY_DATE = new Date().toISOString().split('T')[0];
+    
+    // 由 Python main.py 動態注入資料
+    const rawTrainData = __DATA_PLACEHOLDER__;
+
+    let currentPage = 1;
+    const pageSize = 10;
+    let currentFilteredData = [...rawTrainData];
+
+    function toggleTheme() {
+      const isLight = document.body.classList.toggle('light-mode');
+      const themeBtn = document.getElementById('themeBtn');
+      themeBtn.textContent = isLight ? '深色模式' : '淺色模式';
+    }
+
+    function initPage() {
+      const dates = [...new Set(rawTrainData.map(item => item.date))].sort();
+      const dateSelect = document.getElementById('dateFilter');
+      dates.forEach(d => {
+        const opt = document.createElement('option');
+        opt.value = d;
+        opt.textContent = d;
+        dateSelect.appendChild(opt);
+      });
+
+      document.getElementById('totalCount').textContent = rawTrainData.length;
+      const todayCount = rawTrainData.filter(item => item.date === TODAY_DATE).length;
+      document.getElementById('todayCount').textContent = todayCount;
+
+      filterData();
+      
+      const nowStr = new Date().toLocaleString('zh-TW', { timeZone: 'Asia/Taipei' });
+      document.getElementById('updateTime').textContent = `最後更新：${nowStr}`;
+    }
+
+    function renderTable() {
+      const tbody = document.getElementById('trainTableBody');
+      tbody.innerHTML = '';
+
+      if (currentFilteredData.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; color:var(--text-hint); padding:20px;">無符合條件之加班車資料</td></tr>`;
+        document.getElementById('pageInfo').textContent = '第 0 / 0 頁';
+        return;
+      }
+
+      const totalPages = Math.ceil(currentFilteredData.length / pageSize);
+      if (currentPage > totalPages) currentPage = totalPages;
+      if (currentPage < 1) currentPage = 1;
+
+      const start = (currentPage - 1) * pageSize;
+      const pageData = currentFilteredData.slice(start, start + pageSize);
+
+      pageData.forEach(item => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td class="record-data-cell">${item.date}</td>
+          <td class="record-data-cell" style="color:var(--accent-color);">${item.trainNo}</td>
+          <td><span class="train-badge ${item.badgeClass}">${item.type}</span></td>
+          <td>${item.route} <small style="color:var(--text-hint);">(${item.lineType})</small></td>
+          <td class="record-data-cell">${item.time}</td>
+          <td class="record-data-cell">${item.endTime || '--:--'}</td>
+        `;
+        tbody.appendChild(tr);
+      });
+
+      document.getElementById('pageInfo').textContent = `第 ${currentPage} / ${totalPages} 頁`;
+    }
+
+    function changePage(delta) {
+      currentPage += delta;
+      renderTable();
+    }
+
+    function filterData() {
+      const selectedDate = document.getElementById('dateFilter').value;
+      const keyword = document.getElementById('searchInput').value.trim().toLowerCase();
+
+      currentFilteredData = rawTrainData.filter(item => {
+        const matchDate = (selectedDate === 'ALL' || item.date === selectedDate);
+        const matchKeyword = item.trainNo.toLowerCase().includes(keyword) || 
+                             item.route.toLowerCase().includes(keyword) ||
+                             item.type.toLowerCase().includes(keyword) ||
+                             item.lineType.toLowerCase().includes(keyword);
+        return matchDate && matchKeyword;
+      });
+
+      currentPage = 1;
+      renderTable();
+    }
+
+    initPage();
+  </script>
+</body>
+</html>
