@@ -75,9 +75,9 @@ def format_telegram_report(start_str, end_str, total_found, train_dates):
     
     # 標頭訊息
     header = (
-        f"🚆 *臺鐵 60 天加班車彙整通報*\n"
-        f"📅 統計區間：`{start_str}` ~ `{end_str}`\n"
-        f"📊 總計抓取：*{total_found}* 筆加班車紀錄\n"
+        f"60 天內台鐵加班車彙整\n"
+        f"統計區間：`{start_str}` ~ `{end_str}`\n"
+        f"總計抓取：*{total_found}* 筆加班車紀錄\n"
         f"------------------------------------"
     )
     
