@@ -39,12 +39,11 @@ def get_tdx_token(client_id, client_secret):
         raise Exception(f"取得 Token 時發生連線錯誤: {e}")
 
 
-def is_extra_train(train_type, note, train_num):
+def is_extra_train(train_type, note):
     if "專開列車" in train_type:
         return False
-    if 6000 <= train_num <= 6999:
-        return True
-    return "民國" in note or "加班" in note or "迴送" in note
+    # 改為依據備註是否包含「民國」來判斷
+    return "民國" in note
 
 
 def fetch_single_day(date_obj, token):
@@ -76,7 +75,14 @@ def fetch_single_day(date_obj, token):
                         train_type_dict = train_info.get("TrainTypeName", {})
                         train_type = train_type_dict.get("Zh_tw", "") if isinstance(train_type_dict, dict) else str(train_type_dict)
                         
-                        if is_extra_train(train_type, note, train_num) and train_no not in EXCLUDE_TRAINS:
+                        if is_extra_train(train_type, note) and train_no not in EXCLUDE_TRAINS:
+                            # 判斷備註中是「行駛」還是「停駛」
+                            status_sign = ""
+                            if "行駛" in note:
+                                status_sign = "+"
+                            elif "停駛" in note:
+                                status_sign = "-"
+                            
                             # 解析起點站、終點站以及對應的開車/到達時間
                             stop_times = item.get("StopTimes", [])
                             start_station, end_station = "", ""
@@ -94,7 +100,7 @@ def fetch_single_day(date_obj, token):
                                 end_station = e_name.get("Zh_tw", "") if isinstance(e_name, dict) else str(e_name)
                                 end_time = last_stop.get("ArrivalTime", "")[:5] # 取 HH:MM
                             
-                            results.append((train_no, train_num, date_str, start_station, start_time, end_station, end_time))
+                            results.append((train_no, train_num, date_str, start_station, start_time, end_station, end_time, status_sign))
                             
                 print(f"[V] {api_date_str} 抓取成功，找到 {len(results)} 筆加班車")
                 time.sleep(1.0)  # 成功後乖乖休息 1 秒，維護禮貌
@@ -216,7 +222,7 @@ def main():
             future_to_date = {executor.submit(fetch_single_day, d, token): d for d in date_list}
             for future in as_completed(future_to_date):
                 day_results = future.result()
-                for train_no, train_num, date_str, start_station, start_time, end_station, end_time in day_results:
+                for train_no, train_num, date_str, start_station, start_time, end_station, end_time, status_sign in day_results:
                     total_found += 1
                     dir_key = "shun" if train_num % 2 == 0 else "ni"
                     
@@ -229,7 +235,10 @@ def main():
                             "dates": set(),
                             "route": route_str
                         }
-                    train_dates[dir_key][train_no]["dates"].add(date_str)
+                    
+                    # 將帶有 + 或 - 的日期字串加入集合 (例如 10/23+ 或 10/23-)
+                    date_entry = f"{date_str}{status_sign}"
+                    train_dates[dir_key][train_no]["dates"].add(date_entry)
 
         print(f"\n[System] 資料抓取完成，總計 {total_found} 筆，準備發送 Telegram 訊息...")
 
