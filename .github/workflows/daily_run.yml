@@ -9,12 +9,20 @@ on:
 jobs:
   run-bot:
     runs-on: ubuntu-latest
+    
+    # 🌟 關鍵在這裡：把 GitHub Secrets 綁定成環境變數傳給 Python 程式
+    env:
+      TDX_CLIENT_ID: ${{ secrets.TDX_CLIENT_ID }}
+      TDX_CLIENT_SECRET: ${{ secrets.TDX_CLIENT_SECRET }}
+      TG_BOT_TOKEN: ${{ secrets.TG_BOT_TOKEN }}
+      TG_CHAT_ID: ${{ secrets.TG_CHAT_ID }}
+
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
       - name: Setup Python
-        uses: actions/setup-python@v5  # <--- 這裡改回 setup-python
+        uses: actions/setup-python@v5
         with:
           python-version: '3.10'
 
