@@ -47,6 +47,7 @@ def is_extra_train(train_type, note, train_num):
         return True
     return "民國" in note or "加班" in note or "迴送" in note
 
+
 def fetch_single_day(date_obj, token):
     date_str = date_obj.strftime("%m/%d")
     api_date_str = date_obj.strftime("%Y-%m-%d")
@@ -75,7 +76,7 @@ def fetch_single_day(date_obj, token):
                         if is_extra_train(train_type, note, train_num) and train_no not in EXCLUDE_TRAINS:
                             results.append((train_no, train_num, date_str))
                 print(f"[V] {api_date_str} 抓取成功，找到 {len(results)} 筆加班車")
-                return results # 成功就直接返回
+                return results
             elif response.status_code == 429:
                 print(f"[-] {api_date_str} 觸發限速 (429)，等待重試...")
                 time.sleep(1.5 * (attempt + 1))
@@ -87,7 +88,6 @@ def fetch_single_day(date_obj, token):
             time.sleep(1)
             
     return results
-
 
 
 def send_telegram_messages(bot_token, chat_id, messages):
@@ -177,16 +177,15 @@ def main():
         # 建立 60 天的日期列表
         date_list = [today_taipei + timedelta(days=i) for i in range(DAYS_AHEAD)]
 
-        # 將原本的 max_workers=10 改小，減少同時發送的請求數
-with ThreadPoolExecutor(max_workers=2) as executor:
-    future_to_date = {executor.submit(fetch_single_day, d, token): d for d in date_list}
-    for future in as_completed(future_to_date):
-        day_results = future.result()
-        for train_no, train_num, date_str in day_results:
-            total_found += 1
-            dir_key = "shun" if train_num % 2 == 0 else "ni"
-            train_dates[dir_key][train_no].add(date_str)
-
+        # 正確縮排的 ThreadPoolExecutor
+        with ThreadPoolExecutor(max_workers=2) as executor:
+            future_to_date = {executor.submit(fetch_single_day, d, token): d for d in date_list}
+            for future in as_completed(future_to_date):
+                day_results = future.result()
+                for train_no, train_num, date_str in day_results:
+                    total_found += 1
+                    dir_key = "shun" if train_num % 2 == 0 else "ni"
+                    train_dates[dir_key][train_no].add(date_str)
 
         print(f"\n[System] 資料抓取完成，總計 {total_found} 筆，準備發送 Telegram 訊息...")
 
