@@ -2,6 +2,7 @@ import os
 import sys
 import requests
 import time
+import json
 from datetime import datetime, timezone, timedelta
 from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -19,6 +20,7 @@ TG_CHAT_ID = os.environ.get("TG_CHAT_ID")
 
 DAYS_AHEAD = 60
 EXCLUDE_TRAINS = []
+STATE_FILE = "last_trains.json"
 
 
 def get_tdx_token(client_id, client_secret):
@@ -77,14 +79,12 @@ def fetch_single_day(date_obj, token):
                         train_type = train_type_dict.get("Zh_tw", "") if isinstance(train_type_dict, dict) else str(train_type_dict)
                         
                         if is_extra_train(train_type, note, train_num) and train_no not in EXCLUDE_TRAINS:
-                            # 判斷備註中是「行駛」還是「停駛」
                             status_sign = ""
                             if "行駛" in note:
                                 status_sign = "+"
                             elif "停駛" in note:
                                 status_sign = "-"
                             
-                            # 解析起點站、終點站以及對應的開車/到達時間
                             stop_times = item.get("StopTimes", [])
                             start_station, end_station = "", ""
                             start_time, end_time = "", ""
@@ -95,21 +95,21 @@ def fetch_single_day(date_obj, token):
                                 
                                 s_name = first_stop.get("StationName", {})
                                 start_station = s_name.get("Zh_tw", "") if isinstance(s_name, dict) else str(s_name)
-                                start_time = first_stop.get("DepartureTime", "")[:5] # 取 HH:MM
+                                start_time = first_stop.get("DepartureTime", "")[:5]
                                 
                                 e_name = last_stop.get("StationName", {})
                                 end_station = e_name.get("Zh_tw", "") if isinstance(e_name, dict) else str(e_name)
-                                end_time = last_stop.get("ArrivalTime", "")[:5] # 取 HH:MM
+                                end_time = last_stop.get("ArrivalTime", "")[:5]
                             
                             results.append((train_no, train_num, date_str, start_station, start_time, end_station, end_time, status_sign))
                             
                 print(f"[V] {api_date_str} 抓取成功，找到 {len(results)} 筆加班車")
-                time.sleep(1.0)  # 成功後乖乖休息 1 秒，維護禮貌
+                time.sleep(1.0)
                 return results
                 
             elif response.status_code == 429:
                 print(f"[-] {api_date_str} 觸發限速 (429)，無限重試中 (第 {attempt} 次)...")
-                time.sleep(3.0)  # 遇到限速時稍微多等 3 秒再挑戰
+                time.sleep(3.0)
             else:
                 print(f"[X] {api_date_str} HTTP {response.status_code}，重試中...")
                 time.sleep(3.0)
@@ -117,6 +117,65 @@ def fetch_single_day(date_obj, token):
         except Exception as e:
             print(f"[!] {api_date_str} 發生例外 (第 {attempt} 次): {e}，重試中...")
             time.sleep(3.0)
+
+
+def load_previous_trains():
+    """載入上一期儲存的狀態"""
+    if os.path.exists(STATE_FILE):
+        try:
+            with open(STATE_FILE, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except Exception as e:
+            print(f"[!] 讀取上一期 JSON 失敗: {e}")
+            return {}
+    return {}
+
+
+def save_current_trains(train_dates):
+    """將這次抓到的資料存回 JSON"""
+    serializable = {}
+    for dir_key, trains in train_dates.items():
+        serializable[dir_key] = {}
+        for train_no, info in trains.items():
+            serializable[dir_key][train_no] = {
+                "dates": list(info["dates"]),
+                "route": info["route"]
+            }
+    try:
+        with open(STATE_FILE, "w", encoding="utf-8") as f:
+            json.dump(serializable, f, ensure_ascii=False, indent=2)
+        print("[System] 成功儲存目前狀態至 last_trains.json")
+    except Exception as e:
+        print(f"[!] 儲存 JSON 失敗: {e}")
+
+
+def compare_new_trains(prev_data, current_train_dates):
+    """比對新舊資料，抓出相較上一報新增的車次或日期"""
+    if not prev_data:
+        return [] # 初次執行不產生新增通知
+
+    new_items = []
+    for dir_key in ["shun", "ni"]:
+        current_dict = current_train_dates.get(dir_key, {})
+        prev_dict = prev_data.get(dir_key, {})
+        
+        for train_no, curr_info in current_dict.items():
+            curr_dates = curr_info["dates"]
+            route = curr_info["route"]
+            
+            if train_no not in prev_dict:
+                # 整班車都是全新的
+                sorted_dates = ", ".join(sorted(list(curr_dates)))
+                new_items.append(f"*{train_no}次* ({route}) [全新車次]：{sorted_dates}")
+            else:
+                # 車次原本就有，檢查是否有新增加的行駛日
+                prev_dates = set(prev_dict[train_no].get("dates", []))
+                added_dates = curr_dates - prev_dates
+                if added_dates:
+                    sorted_added = ", ".join(sorted(list(added_dates)))
+                    new_items.append(f"*{train_no}次* ({route}) 新增日期：{sorted_added}")
+                    
+    return new_items
 
 
 def send_telegram_messages(bot_token, chat_id, messages):
@@ -143,14 +202,24 @@ def send_telegram_messages(bot_token, chat_id, messages):
         time.sleep(0.3)
 
 
-def format_telegram_report(start_str, end_str, total_found, train_dates):
+def format_telegram_report(start_str, end_str, total_found, train_dates, new_items):
     messages = []
-    header = (
+    
+    # 建立頂部標題區塊
+    header = ""
+    if new_items:
+        header += "相較前一報：\n"
+        for item in new_items:
+            header += f"• {item}\n"
+        header += "------------------------------------\n\n"
+        
+    header += (
         f"臺鐵 60 天內加班車彙整\n"
         f"統計區間：`{start_str}` ~ `{end_str}`\n"
         f"總計抓取：*{total_found}* 筆加班車紀錄\n"
         f"------------------------------------"
     )
+    
     sections = [
         ("順行（雙數車次）", "shun"),
         ("逆行（單數車次）", "ni")
@@ -186,7 +255,6 @@ def format_telegram_report(start_str, end_str, total_found, train_dates):
 
 
 def main():
-    # 檢查必要環境變數是否齊全
     missing_vars = []
     if not CLIENT_ID: missing_vars.append("TDX_CLIENT_ID")
     if not CLIENT_SECRET: missing_vars.append("TDX_CLIENT_SECRET")
@@ -204,19 +272,21 @@ def main():
     start_str = today_taipei.strftime("%Y-%m-%d")
     end_str = end_date_taipei.strftime("%Y-%m-%d")
 
+    # 1. 載入上一期的 JSON 資料
+    prev_data = load_previous_trains()
+
     train_dates = {
         "shun": {},
         "ni": {}
     }
     total_found = 0
 
-    print(f"🚀 開始抓取 TDX 60 天加班車資料 ({start_str} ~ {end_str})...")
+    print(f"開始抓取 TDX 60 天加班車資料 ({start_str} ~ {end_str})...")
 
     try:
         token = get_tdx_token(CLIENT_ID, CLIENT_SECRET)
-        print("🔑 成功取得 TDX Token，開始多執行緒抓取...")
+        print("成功取得 TDX Token，開始抓取...")
 
-        # 建立 60 天的日期列表
         date_list = [today_taipei + timedelta(days=i) for i in range(DAYS_AHEAD)]
 
         with ThreadPoolExecutor(max_workers=1) as executor:
@@ -237,13 +307,19 @@ def main():
                             "route": route_str
                         }
                     
-                    # 將帶有 + 或 - 的日期字串加入集合 (例如 10/23+ 或 10/23-)
                     date_entry = f"{date_str}{status_sign}"
                     train_dates[dir_key][train_no]["dates"].add(date_entry)
 
-        print(f"\n[System] 資料抓取完成，總計 {total_found} 筆，準備發送 Telegram 訊息...")
+        # 2. 比對出相較上一報新增的項目
+        new_items = compare_new_trains(prev_data, train_dates)
 
-        tg_messages = format_telegram_report(start_str, end_str, total_found, train_dates)
+        # 3. 儲存本次資料以供下一次比對
+        save_current_trains(train_dates)
+
+        print(f"\n[System] 資料抓取與比對完成，發現 {len(new_items)} 項新增項目。準備發送 Telegram 訊息...")
+
+        # 4. 格式化並發送 Telegram 訊息
+        tg_messages = format_telegram_report(start_str, end_str, total_found, train_dates, new_items)
         send_telegram_messages(TG_BOT_TOKEN, TG_CHAT_ID, tg_messages)
 
     except Exception as e:
