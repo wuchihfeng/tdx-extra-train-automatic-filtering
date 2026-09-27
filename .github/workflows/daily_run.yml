@@ -10,6 +10,10 @@ jobs:
   run-bot:
     runs-on: ubuntu-latest
     
+    # 允許 Actions 寫入 Git 倉庫以儲存上一期的 JSON 狀態檔
+    permissions:
+      contents: write
+    
     # 🌟 關鍵在這裡：把 GitHub Secrets 綁定成環境變數傳給 Python 程式
     env:
       TDX_CLIENT_ID: ${{ secrets.TDX_CLIENT_ID }}
@@ -34,3 +38,10 @@ jobs:
       - name: Run Main Script (Fetch 60 Days Data & Send TG)
         run: |
           python main.py
+
+      - name: Save State to Repository
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git add last_trains.json
+          git diff --quiet && git diff --staged --quiet || (git commit -m "chore: auto update last_trains.json state" && git push)
