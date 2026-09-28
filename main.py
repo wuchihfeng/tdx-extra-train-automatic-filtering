@@ -38,7 +38,7 @@ STATE_FILE = "last_trains.json"
 # ==========================================
 current_key_index = 0
 current_token = None
-DEAD_KEYS = set()  # 紀錄回傳 400 等水久無效的金鑰索引，避免重複嘗試
+DEAD_KEYS = set()  # 紀錄回傳 400 等永久無效的金鑰索引，避免重複嘗試
 
 
 def get_tdx_token(client_id, client_secret):
@@ -51,7 +51,7 @@ def get_tdx_token(client_id, client_secret):
         "client_secret": client_secret
     }
     try:
-        response = requests.post(auth_url, headers=headers, data=data, timeout=8)
+        response = requests.post(auth_url, headers=headers, data=data, timeout=12)
         if response.status_code == 200:
             return response.json().get("access_token")
         else:
@@ -100,7 +100,7 @@ def get_valid_token(prefer_next=False):
             print(f"[Key System] 🎉 【{key_info['name']}】驗證成功並啟用！")
             return current_token
         else:
-            print(f"[Key System] ❌ 【{key_info['name']}】驗證失敗，標記為水久停用！")
+            print(f"[Key System] ❌ 【{key_info['name']}】驗證失敗，標記為永久停用！")
             DEAD_KEYS.add(idx)
 
     if current_token and current_key_index not in DEAD_KEYS:
@@ -124,7 +124,7 @@ def fetch_tdx_api(url, max_retries=5):
     for attempt in range(max_retries):
         headers = {"authorization": f"Bearer {current_token}"}
         try:
-            res = requests.get(url, headers=headers, timeout=12)
+            res = requests.get(url, headers=headers, timeout=15)
 
             if res.status_code == 200:
                 return res.json()
@@ -136,8 +136,8 @@ def fetch_tdx_api(url, max_retries=5):
                     print(f"[API Warning] HTTP 429 觸發限制，嘗試順序切換至下一組備用 Key...")
                     current_token = get_valid_token(prefer_next=True)
                 else:
-                    print(f"[-] 觸發 429 限制，已無更後續的可用 Key，【{KEY_PAIRS[current_key_index]['name']}】靜置等待 39 秒 (第 {attempt+1} 次)...")
-                    time.sleep(39)
+                    print(f"[-] 觸發 429 限制，已無更後續的可用 Key，【{KEY_PAIRS[current_key_index]['name']}】靜置等待 45 秒 (第 {attempt+1} 次)...")
+                    time.sleep(45)
 
             elif res.status_code in [401, 403]:  # Token 過期
                 print(f"[API Warning] HTTP {res.status_code} Token 失效，重新嘗試驗證...")
@@ -149,7 +149,7 @@ def fetch_tdx_api(url, max_retries=5):
         except Exception as e:
             print(f"[API Error] 請求例外 (第 {attempt+1} 次): {e}")
 
-        time.sleep(0.5)
+        time.sleep(0.3)
 
     return None
 
@@ -174,7 +174,7 @@ def fetch_single_day(date_obj):
         try:
             attempt += 1
             headers = {"authorization": f"Bearer {current_token}", "accept": "json"}
-            response = requests.get(api_url, headers=headers, timeout=8)
+            response = requests.get(api_url, headers=headers, timeout=15)
 
             if response.status_code == 200:
                 data = response.json()
@@ -216,13 +216,13 @@ def fetch_single_day(date_obj):
                             results.append((train_no, train_num, date_str, start_station, start_time, end_station, end_time, status_sign))
 
                 print(f"[V] {api_date_str} 抓取成功，找到 {len(results)} 筆加班車")
-                time.sleep(1.0)
+                time.sleep(0.3)
                 return results
 
             elif response.status_code in [401, 403]:
                 print(f"[X] {api_date_str} 遇到 HTTP {response.status_code} (Token 失效)，重新驗證並取得 Token...")
                 current_token = get_valid_token(prefer_next=False)
-                time.sleep(1.0)
+                time.sleep(0.5)
 
             elif response.status_code == 429:
                 auth_errors_count += 1
@@ -234,9 +234,9 @@ def fetch_single_day(date_obj):
                     current_token = get_valid_token(prefer_next=True)
                     auth_errors_count = 0
                 else:
-                    # 改為固定 Sleep 39 秒
-                    print(f"[-] {api_date_str} 觸發 429 限速，已無更後續 Key，【{KEY_PAIRS[current_key_index]['name']}】等待 39 秒後重試 (第 {attempt} 次)...")
-                    time.sleep(39)
+                    # 改為固定 Sleep 45 秒，確保 100% 跨過 60 秒滑動視窗
+                    print(f"[-] {api_date_str} 觸發 429 限速，已無更後續 Key，【{KEY_PAIRS[current_key_index]['name']}】等待 45 秒後重試 (第 {attempt} 次)...")
+                    time.sleep(45)
 
             else:
                 print(f"[X] {api_date_str} HTTP {response.status_code}，等待 8 秒後重試...")
