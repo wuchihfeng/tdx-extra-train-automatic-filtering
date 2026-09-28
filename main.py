@@ -10,7 +10,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 sys.stdout.reconfigure(line_buffering=True)
 
 # ==========================================
-# 從 GitHub Secrets 讀取設定（支援雙金鑰備援）
+# 從 GitHub Secrets 讀取設定（支援多金鑰備援）
 # ==========================================
 KEY_PAIRS = []
 
@@ -33,9 +33,12 @@ DAYS_AHEAD = 60
 EXCLUDE_TRAINS = []
 STATE_FILE = "last_trains.json"
 
-# 全域變數：管理當前使用的 Key 與 Token
+# ==========================================
+# 金鑰與 Token 狀態管理
+# ==========================================
 current_key_index = 0
 current_token = None
+DEAD_KEYS = set()  # 紀錄回傳 400 等永久無效的金鑰索引，避免重複嘗試
 
 
 def get_tdx_token(client_id, client_secret):
@@ -52,39 +55,106 @@ def get_tdx_token(client_id, client_secret):
         if response.status_code == 200:
             return response.json().get("access_token")
         else:
-            print(f"[!] Key 驗證失敗 (HTTP {response.status_code}): {response.text}")
+            print(f"[!] 【HTTP {response.status_code}】金鑰驗證失敗: {response.text}")
             return None
     except Exception as e:
         print(f"[!] 取得 Token 時發生連線錯誤: {e}")
         return None
 
 
-def refresh_or_switch_token():
-    """自動嘗試所有已設定的 Key，直到成功拿到 Token 為止"""
+def get_valid_token(prefer_next=False):
+    """
+    單向推進的 Key 取得與切換邏輯：
+    1. 預設始終優先使用 Key 1。
+    2. 若 prefer_next=True (例如觸發 429)，只會向號碼更大的 Key (Key 2) 嘗試。
+    3. 絕不回頭嘗試前面的 Key，若已無後續可用 Key 則維持當前狀態。
+    """
     global current_key_index, current_token
-    
-    total_keys = len(KEY_PAIRS)
-    if total_keys == 0:
-        print("[Fatal Error] 完全找不到 TDX Secrets，請確認 GitHub Settings 設定！")
+
+    alive_indices = [i for i in range(len(KEY_PAIRS)) if i not in DEAD_KEYS]
+
+    if not alive_indices:
+        print("[Fatal Error] ❌ 所有 TDX 金鑰皆已被標記為無效，請檢查 GitHub Secrets！")
         sys.exit(1)
 
-    for _ in range(total_keys):
-        key_info = KEY_PAIRS[current_key_index]
-        print(f"[Key System] 嘗試使用【{key_info['name']}】取得 Token...")
-        
-        token = get_tdx_token(key_info["id"], key_info["secret"])
-        if token:
-            current_token = token
-            print(f"[Key System] 🎉 【{key_info['name']}】驗證成功，取得 Token！")
+    # 如果指定要切換下一組金鑰 (例如遇到 429)
+    if prefer_next:
+        next_candidates = [i for i in alive_indices if i > current_key_index]
+        if next_candidates:
+            target_indices = next_candidates
+        else:
+            # 已經是最後一組活著的金鑰 (例如 Key 2)，絕不切回 Key 1
+            print(f"[Key System] ⚠️ 已經是最後一組可用金鑰 (【{KEY_PAIRS[current_key_index]['name']}】)，不再切回前面的 Key！")
             return current_token
-        
-        # 當前 Key 失敗，自動切換下一組
-        print(f"[Key Warning] 【{key_info['name']}】無效或已被鎖定，自動切換至下一組金鑰...")
-        current_key_index = (current_key_index + 1) % total_keys
-        time.sleep(1)
+    else:
+        # 預設優先從前面的 Key 開始（Key 1 -> Key 2...）
+        target_indices = alive_indices
 
-    print("[Fatal Error] 所有 TDX API 金鑰皆回傳 Invalid (400)，請檢查 GitHub Secrets 內容！")
+    # 嘗試驗證目標 Key 清單
+    for idx in target_indices:
+        key_info = KEY_PAIRS[idx]
+        print(f"[Key System] 嘗試驗證【{key_info['name']}】...")
+        token = get_tdx_token(key_info["id"], key_info["secret"])
+
+        if token:
+            current_key_index = idx
+            current_token = token
+            print(f"[Key System] 🎉 【{key_info['name']}】驗證成功並啟用！")
+            return current_token
+        else:
+            print(f"[Key System] ❌ 【{key_info['name']}】驗證失敗，標記為永久停用！")
+            DEAD_KEYS.add(idx)
+
+    # 若未能切換到新的有效 Key，但當前 Key 未死亡，則繼續沿用
+    if current_token and current_key_index not in DEAD_KEYS:
+        return current_token
+
+    print("[Fatal Error] ❌ 無可用金鑰！")
     sys.exit(1)
+
+
+def fetch_tdx_api(url, max_retries=5):
+    """封裝 API 請求：智慧處理 429 流量限制與單向切換"""
+    global current_token, current_key_index
+
+    if not current_token:
+        current_token = get_valid_token(prefer_next=False)
+
+    for attempt in range(max_retries):
+        headers = {"authorization": f"Bearer {current_token}"}
+        try:
+            res = requests.get(url, headers=headers, timeout=12)
+
+            if res.status_code == 200:
+                return res.json()
+
+            elif res.status_code == 429: # 流量超限
+                # 檢查是否有「序號比現在大」且「活著」的 Key 可以切換
+                has_next_key = any(i > current_key_index for i in range(len(KEY_PAIRS)) if i not in DEAD_KEYS)
+
+                if has_next_key:
+                    print(f"[API Warning] HTTP 429 觸發限制，嘗試順序切換至下一組備用 Key...")
+                    current_token = get_valid_token(prefer_next=True)
+                else:
+                    # 無更後面的 Key 可換，堅守原 Key 原地冷卻等待 (6s, 12s, 18s...)
+                    wait_time = (attempt + 1) * 6
+                    print(f"[-] 觸發 429 限制，已無更後續的可用 Key，【{KEY_PAIRS[current_key_index]['name']}】原地冷卻等待 {wait_time} 秒 (第 {attempt+1} 次)...")
+                    time.sleep(wait_time)
+
+            elif res.status_code in [401, 403]: # Token 過期
+                print(f"[API Warning] HTTP {res.status_code} Token 失效，重新嘗試驗證...")
+                current_token = get_valid_token(prefer_next=False)
+
+            else:
+                print(f"[API Warning] HTTP {res.status_code}: {res.text}")
+
+        except Exception as e:
+            print(f"[API Error] 請求例外 (第 {attempt+1} 次): {e}")
+
+        time.sleep(0.5)
+
+    return None
+
 
 
 def fetch_tdx_api(url, max_retries=3):
