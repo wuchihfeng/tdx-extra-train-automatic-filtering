@@ -13,13 +13,6 @@ jobs:
     # 允許 Actions 寫入 Git 倉庫以儲存上一期的 JSON 狀態檔
     permissions:
       contents: write
-    
-    # 🌟 關鍵在這裡：把 GitHub Secrets 綁定成環境變數傳給 Python 程式
-    env:
-      TDX_CLIENT_ID: ${{ secrets.TDX_CLIENT_ID }}
-      TDX_CLIENT_SECRET: ${{ secrets.TDX_CLIENT_SECRET }}
-      TG_BOT_TOKEN: ${{ secrets.TG_BOT_TOKEN }}
-      TG_CHAT_ID: ${{ secrets.TG_CHAT_ID }}
 
     steps:
       - name: Checkout Repository
@@ -36,6 +29,16 @@ jobs:
           pip install requests urllib3
 
       - name: Run Main Script (Fetch 60 Days Data & Send TG)
+        env:
+          # 🌟 第一組金鑰 (主 Key)
+          TDX_CLIENT_ID: ${{ secrets.TDX_CLIENT_ID }}
+          TDX_CLIENT_SECRET: ${{ secrets.TDX_CLIENT_SECRET }}
+          # 🌟 第二組金鑰 (備援 Key)
+          TDX_CLIENT_ID_2: ${{ secrets.TDX_CLIENT_ID_2 }}
+          TDX_CLIENT_SECRET_2: ${{ secrets.TDX_CLIENT_SECRET_2 }}
+          # Telegram 設定
+          TG_BOT_TOKEN: ${{ secrets.TG_BOT_TOKEN }}
+          TG_CHAT_ID: ${{ secrets.TG_CHAT_ID }}
         run: |
           python main.py
 
