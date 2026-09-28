@@ -3,7 +3,7 @@ name: Daily TRA Extra Train Auto Sync (60 Days)
 on:
   schedule:
     # 依序對應 UTC 時間 22:49、04:49、10:49 執行
-    - cron: '49 22,4,10 * * *'
+    - cron: '46 22,4,10 * * *'
   workflow_dispatch: # 支援在 GitHub 介面上隨時手動點擊執行
 
 jobs:
