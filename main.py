@@ -39,7 +39,7 @@ current_token = None
 
 
 def get_tdx_token(client_id, client_secret):
-    """跟 TDX 拿 Token，失敗時回傳 None 不崩潰"""
+    """跟 TDX 拿 Token，失敗時回傳 None，不直接炸掉程式"""
     auth_url = "https://tdx.transportdata.tw/auth/realms/TDXConnect/protocol/openid-connect/token"
     headers = {"content-type": "application/x-www-form-urlencoded"}
     data = {
@@ -60,10 +60,13 @@ def get_tdx_token(client_id, client_secret):
 
 
 def refresh_or_switch_token():
-    """自動輪詢所有 Key，直到拿到有效 Token 為止"""
+    """自動嘗試所有已設定的 Key，直到成功拿到 Token 為止"""
     global current_key_index, current_token
     
     total_keys = len(KEY_PAIRS)
+    if total_keys == 0:
+        raise Exception("未檢測到任何有效的 TDX API 金鑰，請檢查 GitHub Secrets 設定！")
+
     for _ in range(total_keys):
         key_info = KEY_PAIRS[current_key_index]
         print(f"[Key System] 嘗試使用【{key_info['name']}】取得 Token...")
@@ -74,12 +77,12 @@ def refresh_or_switch_token():
             print(f"[Key System] 🎉 【{key_info['name']}】驗證成功，取得 Token！")
             return current_token
         
-        # 第一組失敗，自動切換到下一組
-        print(f"[Key Warning] 【{key_info['name']}】無效或已被停權，自動切換至下一組金鑰...")
+        # 第一組失敗，跳下一組
+        print(f"[Key Warning] 【{key_info['name']}】失效或被鎖，自動切換至下一組金鑰...")
         current_key_index = (current_key_index + 1) % total_keys
         time.sleep(1)
 
-    raise Exception("所有設定的 TDX API 金鑰均無效（Invalid credentials），請檢查 GitHub Secrets 設定！")
+    raise Exception("所有設定的 TDX API 金鑰皆回傳 Invalid (400)，請重新檢查 GitHub Secrets 內容！")
 
 
 def switch_to_next_key():
