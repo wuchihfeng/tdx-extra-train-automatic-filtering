@@ -18,13 +18,13 @@ KEY_PAIRS = []
 client_id_1 = os.environ.get("TDX_CLIENT_ID")
 client_secret_1 = os.environ.get("TDX_CLIENT_SECRET")
 if client_id_1 and client_secret_1:
-    KEY_PAIRS.append({"id": client_id_1, "secret": client_secret_1, "name": "主 Key (Key 1)"})
+    KEY_PAIRS.append({"id": client_id_1.strip(), "secret": client_secret_1.strip(), "name": "主 Key (Key 1)"})
 
 # 第二組金鑰（備援 Key）
 client_id_2 = os.environ.get("TDX_CLIENT_ID_2")
 client_secret_2 = os.environ.get("TDX_CLIENT_SECRET_2")
 if client_id_2 and client_secret_2:
-    KEY_PAIRS.append({"id": client_id_2, "secret": client_secret_2, "name": "備用 Key (Key 2)"})
+    KEY_PAIRS.append({"id": client_id_2.strip(), "secret": client_secret_2.strip(), "name": "備用 Key (Key 2)"})
 
 TG_BOT_TOKEN = os.environ.get("TG_BOT_TOKEN")
 TG_CHAT_ID = os.environ.get("TG_CHAT_ID")
@@ -65,7 +65,8 @@ def refresh_or_switch_token():
     
     total_keys = len(KEY_PAIRS)
     if total_keys == 0:
-        raise Exception("未檢測到任何有效的 TDX API 金鑰，請檢查 GitHub Secrets 設定！")
+        print("[Fatal Error] 完全找不到 TDX Secrets，請確認 GitHub Settings 設定！")
+        sys.exit(1)
 
     for _ in range(total_keys):
         key_info = KEY_PAIRS[current_key_index]
@@ -77,12 +78,39 @@ def refresh_or_switch_token():
             print(f"[Key System] 🎉 【{key_info['name']}】驗證成功，取得 Token！")
             return current_token
         
-        # 第一組失敗，跳下一組
-        print(f"[Key Warning] 【{key_info['name']}】失效或被鎖，自動切換至下一組金鑰...")
+        # 當前 Key 失敗，自動切換下一組
+        print(f"[Key Warning] 【{key_info['name']}】無效或已被鎖定，自動切換至下一組金鑰...")
         current_key_index = (current_key_index + 1) % total_keys
         time.sleep(1)
 
-    raise Exception("所有設定的 TDX API 金鑰皆回傳 Invalid (400)，請重新檢查 GitHub Secrets 內容！")
+    print("[Fatal Error] 所有 TDX API 金鑰皆回傳 Invalid (400)，請檢查 GitHub Secrets 內容！")
+    sys.exit(1)
+
+
+def fetch_tdx_api(url, max_retries=3):
+    """封裝 TDX API 請求，遇到 401/403 時自動刷新切換 Token 並重試"""
+    global current_token
+    
+    # 第一次執行時先拿 Token
+    if not current_token:
+        current_token = refresh_or_switch_token()
+
+    for attempt in range(max_retries):
+        headers = {"authorization": f"Bearer {current_token}"}
+        try:
+            res = requests.get(url, headers=headers, timeout=12)
+            if res.status_code == 200:
+                return res.json()
+            elif res.status_code in [401, 403]:
+                print(f"[API Warning] HTTP {res.status_code} Token 失效/超限，嘗試切換 Key...")
+                current_token = refresh_or_switch_token()
+            else:
+                print(f"[API Warning] HTTP {res.status_code}: {res.text}")
+        except Exception as e:
+            print(f"[API Error] 請求失敗 (嘗試 {attempt+1}/{max_retries}): {e}")
+        time.sleep(1)
+        
+    return None
 
 
 def switch_to_next_key():
