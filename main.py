@@ -4,17 +4,28 @@ import requests
 import time
 import json
 from datetime import datetime, timezone, timedelta
-from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 # 強制 Log 即時印出，不等待 Buffer
 sys.stdout.reconfigure(line_buffering=True)
 
 # ==========================================
-# 從 GitHub Secrets 讀取設定（強制要求，不提供預設值）
+# 從 GitHub Secrets 讀取設定（支援雙金鑰備援）
 # ==========================================
-CLIENT_ID = os.environ.get("TDX_CLIENT_ID")
-CLIENT_SECRET = os.environ.get("TDX_CLIENT_SECRET")
+KEY_PAIRS = []
+
+# 第一組金鑰（主 Key）
+client_id_1 = os.environ.get("TDX_CLIENT_ID")
+client_secret_1 = os.environ.get("TDX_CLIENT_SECRET")
+if client_id_1 and client_secret_1:
+    KEY_PAIRS.append({"id": client_id_1, "secret": client_secret_1, "name": "主 Key (Key 1)"})
+
+# 第二組金鑰（備援 Key）
+client_id_2 = os.environ.get("TDX_CLIENT_ID_2")
+client_secret_2 = os.environ.get("TDX_CLIENT_SECRET_2")
+if client_id_2 and client_secret_2:
+    KEY_PAIRS.append({"id": client_id_2, "secret": client_secret_2, "name": "備用 Key (Key 2)"})
+
 TG_BOT_TOKEN = os.environ.get("TG_BOT_TOKEN")
 TG_CHAT_ID = os.environ.get("TG_CHAT_ID")
 
@@ -22,8 +33,13 @@ DAYS_AHEAD = 60
 EXCLUDE_TRAINS = []
 STATE_FILE = "last_trains.json"
 
+# 全域變數：管理當前使用的 Key 與 Token
+current_key_index = 0
+current_token = None
+
 
 def get_tdx_token(client_id, client_secret):
+    """跟 TDX 拿 Token"""
     auth_url = "https://tdx.transportdata.tw/auth/realms/TDXConnect/protocol/openid-connect/token"
     headers = {"content-type": "application/x-www-form-urlencoded"}
     data = {
@@ -36,32 +52,68 @@ def get_tdx_token(client_id, client_secret):
         if response.status_code == 200:
             return response.json().get("access_token")
         else:
-            raise Exception(f"TDX Token 取得失敗 HTTP {response.status_code}: {response.text}")
+            print(f"[!] Token 取得失敗 HTTP {response.status_code}: {response.text}")
+            return None
     except Exception as e:
-        raise Exception(f"取得 Token 時發生連線錯誤: {e}")
+        print(f"[!] 取得 Token 時發生連線錯誤: {e}")
+        return None
+
+
+def refresh_or_switch_token():
+    """刷新當前 Key 的 Token，若失敗則切換至下一組 Key"""
+    global current_key_index, current_token
+    
+    attempts = 0
+    total_keys = len(KEY_PAIRS)
+    
+    while attempts < total_keys:
+        key_info = KEY_PAIRS[current_key_index]
+        print(f"[Key System] 嘗試使用【{key_info['name']}】取得新 Token...")
+        
+        token = get_tdx_token(key_info["id"], key_info["secret"])
+        if token:
+            current_token = token
+            print(f"[Key System] 【{key_info['name']}】Token 取得成功！")
+            return current_token
+        
+        # 若當前 Key 失敗，切換到下一個 Key
+        print(f"[Key Warning] 【{key_info['name']}】失效，準備切換金鑰...")
+        current_key_index = (current_key_index + 1) % total_keys
+        attempts += 1
+        time.sleep(2)
+
+    raise Exception("所有可用 API 金鑰均失效，無法繼續執行！")
+
+
+def switch_to_next_key():
+    """強制切換到下一組 Key 並取得 Token"""
+    global current_key_index
+    if len(KEY_PAIRS) > 1:
+        current_key_index = (current_key_index + 1) % len(KEY_PAIRS)
+        print(f"[Key System] 切換至備用金鑰：【{KEY_PAIRS[current_key_index]['name']}】")
+    return refresh_or_switch_token()
 
 
 def is_extra_train(train_type, note, train_num):
-    # 只要車種包含「專開」，直接排除
     if "專開" in train_type:
         return False
-    # 符合以下條件之一：備註有「民國」 或者 車次介於 6000~6999 之間
     return "民國" in note or (6000 <= train_num <= 6999)
 
 
-def fetch_single_day(date_obj, token):
+def fetch_single_day(date_obj):
+    global current_token
     date_str = date_obj.strftime("%m/%d")
     api_date_str = date_obj.strftime("%Y-%m-%d")
     api_url = f"https://tdx.transportdata.tw/api/basic/v3/Rail/TRA/DailyTrainTimetable/TrainDate/{api_date_str}?$format=JSON"
-    headers = {"authorization": f"Bearer {token}", "accept": "json"}
     
     results = []
     attempt = 0
+    auth_errors_count = 0  # 紀錄權限相關錯誤次數
     
-    # 無限迴圈（不死鳥機制），直到成功取得該日資料為止
     while True:
         try:
             attempt += 1
+            headers = {"authorization": f"Bearer {current_token}", "accept": "json"}
             response = requests.get(api_url, headers=headers, timeout=8)
             
             if response.status_code == 200:
@@ -107,10 +159,23 @@ def fetch_single_day(date_obj, token):
                 time.sleep(1.0)
                 return results
                 
+            elif response.status_code in [401, 403]:
+                # Token 過期或 Key 被停權，啟動備用 Key 切換機制
+                print(f"[X] {api_date_str} 遇到 HTTP {response.status_code} (金鑰/Token 失效)，啟動切換備援 Key...")
+                switch_to_next_key()
+                time.sleep(2.0)
+
             elif response.status_code in [400, 429]:
-                # 遇到 Bad Request (400) 或 限速 (429)，等待 12 秒解鎖後無限重試
-                print(f"[-] {api_date_str} 觸發限速/請求異常 (HTTP {response.status_code})，等待 12 秒後重試 (第 {attempt} 次)...")
+                auth_errors_count += 1
+                # 如果連續打同一個日期爆 429 超過 3 次，自動換下一張 Key 試試看
+                if auth_errors_count >= 3 and len(KEY_PAIRS) > 1:
+                    print(f"[-] {api_date_str} 連續 429 限速，切換至備用 Key 繼續戰鬥...")
+                    switch_to_next_key()
+                    auth_errors_count = 0
+                else:
+                    print(f"[-] {api_date_str} 觸發限速/異常 (HTTP {response.status_code})，等待 12 秒後重試 (第 {attempt} 次)...")
                 time.sleep(12.0)
+                
             else:
                 print(f"[X] {api_date_str} HTTP {response.status_code}，等待 12 秒後重試...")
                 time.sleep(12.0)
@@ -121,7 +186,6 @@ def fetch_single_day(date_obj, token):
 
 
 def load_previous_trains():
-    """載入上一期儲存的狀態"""
     if os.path.exists(STATE_FILE):
         try:
             with open(STATE_FILE, "r", encoding="utf-8") as f:
@@ -133,7 +197,6 @@ def load_previous_trains():
 
 
 def save_current_trains(train_dates):
-    """將這次抓到的資料存回 JSON"""
     serializable = {}
     for dir_key, trains in train_dates.items():
         serializable[dir_key] = {}
@@ -151,9 +214,8 @@ def save_current_trains(train_dates):
 
 
 def compare_new_trains(prev_data, current_train_dates):
-    """比對新舊資料，抓出相較上一報新增的車次或日期"""
     if not prev_data:
-        return [] # 初次執行不產生新增通知
+        return []
 
     new_items = []
     for dir_key in ["shun", "ni"]:
@@ -165,11 +227,9 @@ def compare_new_trains(prev_data, current_train_dates):
             route = curr_info["route"]
             
             if train_no not in prev_dict:
-                # 整班車都是全新的
                 sorted_dates = ", ".join(sorted(list(curr_dates)))
                 new_items.append(f"*{train_no}次* ({route}) [全新車次]：{sorted_dates}")
             else:
-                # 車次原本就有，檢查是否有新增加的行駛日
                 prev_dates = set(prev_dict[train_no].get("dates", []))
                 added_dates = curr_dates - prev_dates
                 if added_dates:
@@ -206,10 +266,9 @@ def send_telegram_messages(bot_token, chat_id, messages):
 def format_telegram_report(start_str, end_str, total_found, train_dates, new_items):
     messages = []
     
-    # 建立頂部標題區塊
     header = ""
     if new_items:
-        header += "相較前一報：\n"
+        header += "相較前一報，異動了：\n"
         for item in new_items:
             header += f"• {item}\n"
         header += "------------------------------------\n\n"
@@ -257,8 +316,7 @@ def format_telegram_report(start_str, end_str, total_found, train_dates, new_ite
 
 def main():
     missing_vars = []
-    if not CLIENT_ID: missing_vars.append("TDX_CLIENT_ID")
-    if not CLIENT_SECRET: missing_vars.append("TDX_CLIENT_SECRET")
+    if not KEY_PAIRS: missing_vars.append("TDX_CLIENT_ID / TDX_CLIENT_SECRET")
     if not TG_BOT_TOKEN: missing_vars.append("TG_BOT_TOKEN")
     if not TG_CHAT_ID: missing_vars.append("TG_CHAT_ID")
     
@@ -273,7 +331,6 @@ def main():
     start_str = today_taipei.strftime("%Y-%m-%d")
     end_str = end_date_taipei.strftime("%Y-%m-%d")
 
-    # 1. 載入上一期的 JSON 資料
     prev_data = load_previous_trains()
 
     train_dates = {
@@ -283,15 +340,16 @@ def main():
     total_found = 0
 
     print(f"開始抓取 TDX 60 天加班車資料 ({start_str} ~ {end_str})...")
+    print(f"檢測到已設定 {len(KEY_PAIRS)} 組 API 金鑰機制。")
 
     try:
-        token = get_tdx_token(CLIENT_ID, CLIENT_SECRET)
-        print("成功取得 TDX Token，開始抓取...")
+        # 初始化 Token
+        refresh_or_switch_token()
 
         date_list = [today_taipei + timedelta(days=i) for i in range(DAYS_AHEAD)]
 
         with ThreadPoolExecutor(max_workers=1) as executor:
-            future_to_date = {executor.submit(fetch_single_day, d, token): d for d in date_list}
+            future_to_date = {executor.submit(fetch_single_day, d): d for d in date_list}
             for future in as_completed(future_to_date):
                 day_results = future.result()
                 for train_no, train_num, date_str, start_station, start_time, end_station, end_time, status_sign in day_results:
@@ -311,15 +369,11 @@ def main():
                     date_entry = f"{date_str}{status_sign}"
                     train_dates[dir_key][train_no]["dates"].add(date_entry)
 
-        # 2. 比對出相較上一報新增的項目
         new_items = compare_new_trains(prev_data, train_dates)
-
-        # 3. 儲存本次資料以供下一次比對
         save_current_trains(train_dates)
 
         print(f"\n[System] 資料抓取與比對完成，發現 {len(new_items)} 項新增項目。準備發送 Telegram 訊息...")
 
-        # 4. 格式化並發送 Telegram 訊息
         tg_messages = format_telegram_report(start_str, end_str, total_found, train_dates, new_items)
         send_telegram_messages(TG_BOT_TOKEN, TG_CHAT_ID, tg_messages)
 
