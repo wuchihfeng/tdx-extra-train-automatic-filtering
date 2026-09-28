@@ -38,7 +38,7 @@ STATE_FILE = "last_trains.json"
 # ==========================================
 current_key_index = 0
 current_token = None
-DEAD_KEYS = set()  # 紀錄回傳 400 等永久無效的金鑰索引，避免重複嘗試
+DEAD_KEYS = set()  # 紀錄驗證失敗、永久無效的金鑰索引
 
 
 def get_tdx_token(client_id, client_secret):
@@ -62,12 +62,12 @@ def get_tdx_token(client_id, client_secret):
         return None
 
 
-def get_valid_token(prefer_next=False):
+def get_valid_token():
     """
-    單向推進的 Key 取得與切換邏輯：
-    1. 預設始終優先使用 Key 1。
-    2. 若 prefer_next=True (例如觸發 429)，只會向號碼更大的 Key (Key 2) 嘗試。
-    3. 絕不回頭嘗試前面的 Key。
+    主備備援邏輯：
+    1. 永遠優先驗證並使用 Key 1。
+    2. 只有當 Key 1 驗證失敗（非 429，是帳密/權限無效）時，才依序遞補啟用 Key 2。
+    3. 若啟用中的 Key 遇到 429，不切換 Key，直接在 API 層級等待 60 秒。
     """
     global current_key_index, current_token
 
@@ -77,19 +77,8 @@ def get_valid_token(prefer_next=False):
         print("[Fatal Error] ❌ 所有 TDX 金鑰皆已被標記為無效，請檢查 GitHub Secrets！")
         sys.exit(1)
 
-    # 如果指定要切換下一組金鑰 (例如遇到 429)
-    if prefer_next:
-        next_candidates = [i for i in alive_indices if i > current_key_index]
-        if next_candidates:
-            target_indices = next_candidates
-        else:
-            print(f"[Key System] ⚠️ 已經是最後一組可用金鑰 (【{KEY_PAIRS[current_key_index]['name']}】)，不再切回前面的 Key！")
-            return current_token
-    else:
-        target_indices = alive_indices
-
-    # 嘗試驗證目標 Key 清單
-    for idx in target_indices:
+    # 依序嘗試活著的金鑰（優先 Key 1）
+    for idx in alive_indices:
         key_info = KEY_PAIRS[idx]
         print(f"[Key System] 嘗試驗證【{key_info['name']}】...")
         token = get_tdx_token(key_info["id"], key_info["secret"])
@@ -100,58 +89,11 @@ def get_valid_token(prefer_next=False):
             print(f"[Key System] 🎉 【{key_info['name']}】驗證成功並啟用！")
             return current_token
         else:
-            print(f"[Key System] ❌ 【{key_info['name']}】驗證失敗，標記為永久停用！")
+            print(f"[Key System] ❌ 【{key_info['name']}】驗證失敗，標記為永久無效！")
             DEAD_KEYS.add(idx)
-
-    if current_token and current_key_index not in DEAD_KEYS:
-        return current_token
 
     print("[Fatal Error] ❌ 無可用金鑰！")
     sys.exit(1)
-
-
-# 別名相容舊呼叫名稱
-refresh_or_switch_token = get_valid_token
-
-
-def fetch_tdx_api(url, max_retries=5):
-    """封裝 API 請求：智慧處理 429 流量限制與單向切換"""
-    global current_token, current_key_index
-
-    if not current_token:
-        current_token = get_valid_token(prefer_next=False)
-
-    for attempt in range(max_retries):
-        headers = {"authorization": f"Bearer {current_token}"}
-        try:
-            res = requests.get(url, headers=headers, timeout=15)
-
-            if res.status_code == 200:
-                return res.json()
-
-            elif res.status_code == 429:  # 流量超限
-                has_next_key = any(i > current_key_index for i in range(len(KEY_PAIRS)) if i not in DEAD_KEYS)
-
-                if has_next_key:
-                    print(f"[API Warning] HTTP 429 觸發限制，嘗試順序切換至下一組備用 Key...")
-                    current_token = get_valid_token(prefer_next=True)
-                else:
-                    print(f"[-] 觸發 429 限制，已無更後續的可用 Key，【{KEY_PAIRS[current_key_index]['name']}】靜置等待 45 秒 (第 {attempt+1} 次)...")
-                    time.sleep(45)
-
-            elif res.status_code in [401, 403]:  # Token 過期
-                print(f"[API Warning] HTTP {res.status_code} Token 失效，重新嘗試驗證...")
-                current_token = get_valid_token(prefer_next=False)
-
-            else:
-                print(f"[API Warning] HTTP {res.status_code}: {res.text}")
-
-        except Exception as e:
-            print(f"[API Error] 請求例外 (第 {attempt+1} 次): {e}")
-
-        time.sleep(0.3)
-
-    return None
 
 
 def is_extra_train(train_type, note, train_num):
@@ -168,7 +110,6 @@ def fetch_single_day(date_obj):
 
     results = []
     attempt = 0
-    auth_errors_count = 0  # 紀錄權限/超限相關錯誤次數
 
     while True:
         try:
@@ -220,23 +161,16 @@ def fetch_single_day(date_obj):
                 return results
 
             elif response.status_code in [401, 403]:
-                print(f"[X] {api_date_str} 遇到 HTTP {response.status_code} (Token 失效)，重新驗證並取得 Token...")
-                current_token = get_valid_token(prefer_next=False)
+                # Token 過期或權限異常：嘗試重新取 Token（若當前 Key 無效會自動遞補備用 Key）
+                print(f"[X] {api_date_str} 遇到 HTTP {response.status_code} (Token 失效)，嘗試重新驗證 Key...")
+                DEAD_KEYS.add(current_key_index)  # 標記當前 Key 失效，強迫切換
+                current_token = get_valid_token()
                 time.sleep(0.5)
 
             elif response.status_code == 429:
-                auth_errors_count += 1
-                has_next_key = any(i > current_key_index for i in range(len(KEY_PAIRS)) if i not in DEAD_KEYS)
-
-                # 如果有下一組未失效的 Key，嘗試切換
-                if auth_errors_count >= 2 and has_next_key:
-                    print(f"[-] {api_date_str} 連續 429 限速，嘗試切換至下一組備用 Key...")
-                    current_token = get_valid_token(prefer_next=True)
-                    auth_errors_count = 0
-                else:
-                    # 改為固定 Sleep 45 秒，確保 100% 跨過 60 秒滑動視窗
-                    print(f"[-] {api_date_str} 觸發 429 限速，已無更後續 Key，【{KEY_PAIRS[current_key_index]['name']}】等待 45 秒後重試 (第 {attempt} 次)...")
-                    time.sleep(45)
+                # 觸發 429 流量限制：不切換 Key，直接紮實 sleep 60 秒跨過視窗
+                print(f"[-] {api_date_str} 觸發 429 限速，【{KEY_PAIRS[current_key_index]['name']}】等待 60 秒後重試 (第 {attempt} 次)...")
+                time.sleep(60)
 
             else:
                 print(f"[X] {api_date_str} HTTP {response.status_code}，等待 8 秒後重試...")
@@ -405,7 +339,8 @@ def main():
     print(f"檢測到已設定 {len(KEY_PAIRS)} 組 API 金鑰機制。")
 
     try:
-        get_valid_token(prefer_next=False)
+        # 啟動時先取得 Token（預設 Key 1）
+        get_valid_token()
 
         date_list = [today_taipei + timedelta(days=i) for i in range(DAYS_AHEAD)]
 
