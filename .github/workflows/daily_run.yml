@@ -1,4 +1,4 @@
-Name: Daily TRA Extra Train Auto Sync (60 Days)
+name: Daily TRA Extra Train Auto Sync (60 Days)
 
 on:
   schedule:
