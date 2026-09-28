@@ -58,7 +58,7 @@ def fetch_single_day(date_obj, token):
     results = []
     attempt = 0
     
-    # 無限迴圈，直到成功取得該日資料為止
+    # 無限迴圈（不死鳥機制），直到成功取得該日資料為止
     while True:
         try:
             attempt += 1
@@ -107,16 +107,17 @@ def fetch_single_day(date_obj, token):
                 time.sleep(1.0)
                 return results
                 
-            elif response.status_code == 429:
-                print(f"[-] {api_date_str} 觸發限速 (429)，無限重試中 (第 {attempt} 次)...")
-                time.sleep(3.0)
+            elif response.status_code in [400, 429]:
+                # 遇到 Bad Request (400) 或 限速 (429)，等待 12 秒解鎖後無限重試
+                print(f"[-] {api_date_str} 觸發限速/請求異常 (HTTP {response.status_code})，等待 12 秒後重試 (第 {attempt} 次)...")
+                time.sleep(12.0)
             else:
-                print(f"[X] {api_date_str} HTTP {response.status_code}，重試中...")
-                time.sleep(3.0)
+                print(f"[X] {api_date_str} HTTP {response.status_code}，等待 12 秒後重試...")
+                time.sleep(12.0)
                 
         except Exception as e:
-            print(f"[!] {api_date_str} 發生例外 (第 {attempt} 次): {e}，重試中...")
-            time.sleep(3.0)
+            print(f"[!] {api_date_str} 發生例外 (第 {attempt} 次): {e}，等待 12 秒後重試...")
+            time.sleep(12.0)
 
 
 def load_previous_trains():
