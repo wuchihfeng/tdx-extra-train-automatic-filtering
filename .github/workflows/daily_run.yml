@@ -1,9 +1,9 @@
-name: Daily TRA Extra Train Auto Sync (60 Days)
+name: Daily TRA Extra Train Auto Sync (45 Days)
 
 on:
   schedule:
-    # 依序對應 UTC 22:46、10:46 執行
-    # 等於台灣時間 (UTC+8) 06:46、12:46、18:46 觸發
+    # UTC 時間 22:46、10:46 執行
+    # 等於台灣時間 (UTC+8) 06:46、18:46 觸發
     - cron: '46 22,10 * * *'
   workflow_dispatch: # 支援在 GitHub 介面上隨時手動點擊執行
 
@@ -11,7 +11,7 @@ jobs:
   run-bot:
     runs-on: ubuntu-latest
     
-    # 允許 Actions 寫入 Git 倉庫以儲存上一期的 JSON 狀態檔
+    # 允許 Actions 寫入 Git 倉庫以儲存 JSON 狀態與 HTTP 快取檔
     permissions:
       contents: write
 
@@ -29,7 +29,7 @@ jobs:
           python -m pip install --upgrade pip
           pip install requests urllib3
 
-      - name: Run Main Script (Fetch 60 Days Data & Send TG)
+      - name: Run Main Script (Fetch 45 Days Data & Send TG)
         env:
           # 🌟 第一組金鑰 (主 Key)
           TDX_CLIENT_ID: ${{ secrets.TDX_CLIENT_ID }}
@@ -44,9 +44,9 @@ jobs:
         run: |
           python main.py
 
-      - name: Save State to Repository
+      - name: Save State and HTTP Cache to Repository
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
-          git add last_trains.json
-          git diff --quiet && git diff --staged --quiet || (git commit -m "chore: auto update last_trains.json state" && git push)
+          git add last_trains.json http_cache.json
+          git diff --quiet && git diff --staged --quiet || (git commit -m "chore: auto update state and http cache" && git push)
