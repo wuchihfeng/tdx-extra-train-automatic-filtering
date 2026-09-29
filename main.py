@@ -38,7 +38,7 @@ if os.environ.get("TG_CHAT_ID_2"):
 # 將所有得到的 Chat ID 字串結合
 TG_CHAT_ID = ",".join(tg_ids) if tg_ids else None
 
-DAYS_AHEAD = 60
+DAYS_AHEAD = 45  # 已修改為 45 天
 EXCLUDE_TRAINS = []
 STATE_FILE = "last_trains.json"
 
@@ -296,7 +296,7 @@ def format_telegram_report(start_str, end_str, total_found, train_dates, new_ite
         header += "------------------------------------\n\n"
 
     header += (
-        f"臺鐵 60 天內加班車彙整\n"
+        f"臺鐵 45 天內加減班車彙整\n"  # 已修正報告標題為 45 天
         f"統計區間：`{start_str}` ~ `{end_str}`\n"
         f"總計抓取：*{total_found}* 筆加班車紀錄\n"
         f"------------------------------------"
@@ -361,7 +361,7 @@ def main():
     }
     total_found = 0
 
-    print(f"開始抓取 TDX 60 天加班車資料 ({start_str} ~ {end_str})...")
+    print(f"開始抓取 TDX 45 天加班車資料 ({start_str} ~ {end_str})...")  # 已修正 Log 為 45 天
     print(f"檢測到已設定 {len(KEY_PAIRS)} 組 API 金鑰機制。")
 
     try:
