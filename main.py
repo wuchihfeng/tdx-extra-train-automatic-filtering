@@ -10,7 +10,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 sys.stdout.reconfigure(line_buffering=True)
 
 # ==========================================
-# 從 GitHub Secrets 讀取設定（支援多金鑰備援）
+# 從 GitHub Secrets 讀取設定（支援多金鑰備援與多 Chat ID）
 # ==========================================
 KEY_PAIRS = []
 
@@ -27,7 +27,16 @@ if client_id_2 and client_secret_2:
     KEY_PAIRS.append({"id": client_id_2.strip(), "secret": client_secret_2.strip(), "name": "備用 Key (Key 2)"})
 
 TG_BOT_TOKEN = os.environ.get("TG_BOT_TOKEN")
-TG_CHAT_ID = os.environ.get("TG_CHAT_ID")
+
+# 讀取並彙整多個 Telegram Chat ID（支援 TG_CHAT_ID 與 TG_CHAT_ID_2）
+tg_ids = []
+if os.environ.get("TG_CHAT_ID"):
+    tg_ids.append(os.environ.get("TG_CHAT_ID").strip())
+if os.environ.get("TG_CHAT_ID_2"):
+    tg_ids.append(os.environ.get("TG_CHAT_ID_2").strip())
+
+# 將所有得到的 Chat ID 字串結合
+TG_CHAT_ID = ",".join(tg_ids) if tg_ids else None
 
 DAYS_AHEAD = 60
 EXCLUDE_TRAINS = []
@@ -161,14 +170,14 @@ def fetch_single_day(date_obj):
                 return results
 
             elif response.status_code in [401, 403]:
-                # Token 過期或權限異常：嘗試重新取 Token（若當前 Key 無效會自動遞補備用 Key）
+                # Token 過期或權限異常：嘗試重新驗證 Key
                 print(f"[X] {api_date_str} 遇到 HTTP {response.status_code} (Token 失效)，嘗試重新驗證 Key...")
                 DEAD_KEYS.add(current_key_index)  # 標記當前 Key 失效，強迫切換
                 current_token = get_valid_token()
                 time.sleep(0.5)
 
             elif response.status_code == 429:
-                # 觸發 429 流量限制：不切換 Key，直接紮實 sleep 60 秒跨過視窗
+                # 觸發 429 流量限制
                 print(f"[-] {api_date_str} 觸發 429 限速，【{KEY_PAIRS[current_key_index]['name']}】等待 60 秒後重試 (第 {attempt} 次)...")
                 time.sleep(60)
 
@@ -236,27 +245,44 @@ def compare_new_trains(prev_data, current_train_dates):
 
 
 def send_telegram_messages(bot_token, chat_id, messages):
+    """支援單個或多個 Telegram Chat ID 的發送機制"""
     if not bot_token:
         print("[TG Warning] 未設定 Telegram Bot Token，跳過發送。")
         return
+
+    # 自動解析傳入的 chat_id（支援以逗號、分號或空格分隔多個 ID）
+    if isinstance(chat_id, str):
+        chat_ids = [c.strip() for c in chat_id.replace(";", ",").replace(" ", ",").split(",") if c.strip()]
+    elif isinstance(chat_id, list):
+        chat_ids = chat_id
+    else:
+        chat_ids = [str(chat_id)] if chat_id else []
+
+    if not chat_ids:
+        print("[TG Warning] 未提供有效的 Chat ID，跳過發送。")
+        return
+
     url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
 
-    for msg in messages:
-        payload = {
-            "chat_id": chat_id,
-            "text": msg,
-            "parse_mode": "Markdown",
-            "disable_web_page_preview": True
-        }
-        try:
-            res = requests.post(url, json=payload, timeout=8)
-            if res.status_code == 200:
-                print("[TG] 訊息發送成功！")
-            else:
-                print(f"[TG Error] 發送失敗: {res.text}")
-        except Exception as e:
-            print(f"[TG Exception] {e}")
-        time.sleep(0.3)
+    # 針對每一個 Chat ID 發送所有訊息區段
+    for target_id in chat_ids:
+        print(f"[TG] 開始發送訊息至 Chat ID: {target_id}")
+        for msg in messages:
+            payload = {
+                "chat_id": target_id,
+                "text": msg,
+                "parse_mode": "Markdown",
+                "disable_web_page_preview": True
+            }
+            try:
+                res = requests.post(url, json=payload, timeout=8)
+                if res.status_code == 200:
+                    print(f"[TG] 訊息發送至 {target_id} 成功！")
+                else:
+                    print(f"[TG Error] 發送至 {target_id} 失敗: {res.text}")
+            except Exception as e:
+                print(f"[TG Exception] 發送至 {target_id} 發生錯誤: {e}")
+            time.sleep(0.3)
 
 
 def format_telegram_report(start_str, end_str, total_found, train_dates, new_items):
@@ -381,3 +407,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+w
