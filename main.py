@@ -78,7 +78,7 @@ def wait_for_rate_limit():
 
 
 def load_http_cache():
-    """載入本地 HTTP 快取 (Last-Modified 與資料)"""
+    """載入本地 HTTP 快取 (Last-Modified 與輕量解析結果)"""
     if os.path.exists(CACHE_FILE):
         try:
             with open(CACHE_FILE, "r", encoding="utf-8") as f:
@@ -167,13 +167,80 @@ def is_extra_train(train_type, note, train_num):
     return "民國" in note or (6000 <= train_num <= 6999)
 
 
+def parse_train_data(data, date_str):
+    """將 API 回傳的原始資料解析為加班車清單（輕量化，不儲存原始 JSON）"""
+    results = []
+    for item in data.get("TrainTimetables", []):
+        train_info = item.get("TrainInfo", {})
+        train_no = train_info.get("TrainNo")
+
+        if train_no and train_no.isdigit():
+            train_num = int(train_no)
+            raw_note = train_info.get("Note", "")
+            note = (
+                raw_note.get("Zh_tw", "")
+                if isinstance(raw_note, dict)
+                else str(raw_note or "")
+            )
+            train_type_dict = train_info.get("TrainTypeName", {})
+            train_type = (
+                train_type_dict.get("Zh_tw", "")
+                if isinstance(train_type_dict, dict)
+                else str(train_type_dict)
+            )
+
+            if (
+                is_extra_train(train_type, note, train_num)
+                and train_no not in EXCLUDE_TRAINS
+            ):
+                status_sign = (
+                    "+" if "行駛" in note else ("-" if "停駛" in note else "")
+                )
+                stop_times = item.get("StopTimes", [])
+                start_station, end_station, start_time, end_time = (
+                    "",
+                    "",
+                    "",
+                    "",
+                )
+
+                if stop_times:
+                    first_stop = stop_times[0]
+                    last_stop = stop_times[-1]
+                    s_name = first_stop.get("StationName", {})
+                    start_station = (
+                        s_name.get("Zh_tw", "")
+                        if isinstance(s_name, dict)
+                        else str(s_name)
+                    )
+                    start_time = first_stop.get("DepartureTime", "")[:5]
+                    e_name = last_stop.get("StationName", {})
+                    end_station = (
+                        e_name.get("Zh_tw", "")
+                        if isinstance(e_name, dict)
+                        else str(e_name)
+                    )
+                    end_time = last_stop.get("ArrivalTime", "")[:5]
+
+                results.append([
+                    train_no,
+                    train_num,
+                    date_str,
+                    start_station,
+                    start_time,
+                    end_station,
+                    end_time,
+                    status_sign,
+                ])
+    return results
+
+
 def fetch_single_day(date_obj, http_cache):
     global current_token, current_key_index
     date_str = date_obj.strftime("%m/%d")
     api_date_str = date_obj.strftime("%Y-%m-%d")
     api_url = f"https://tdx.transportdata.tw/api/basic/v3/Rail/TRA/DailyTrainTimetable/TrainDate/{api_date_str}?$format=JSON"
 
-    results = []
     attempt = 0
 
     while True:
@@ -201,157 +268,26 @@ def fetch_single_day(date_obj, http_cache):
                 print(
                     f"[304 Cache Hit] {api_date_str} 資料未更新，直接使用快取（不消耗流量點數）"
                 )
-                data = cached_info.get("data", {})
-                for item in data.get("TrainTimetables", []):
-                    train_info = item.get("TrainInfo", {})
-                    train_no = train_info.get("TrainNo")
-
-                    if train_no and train_no.isdigit():
-                        train_num = int(train_no)
-                        raw_note = train_info.get("Note", "")
-                        note = (
-                            raw_note.get("Zh_tw", "")
-                            if isinstance(raw_note, dict)
-                            else str(raw_note or "")
-                        )
-                        train_type_dict = train_info.get("TrainTypeName", {})
-                        train_type = (
-                            train_type_dict.get("Zh_tw", "")
-                            if isinstance(train_type_dict, dict)
-                            else str(train_type_dict)
-                        )
-
-                        if (
-                            is_extra_train(train_type, note, train_num)
-                            and train_no not in EXCLUDE_TRAINS
-                        ):
-                            status_sign = (
-                                "+"
-                                if "行駛" in note
-                                else ("-" if "停駛" in note else "")
-                            )
-                            stop_times = item.get("StopTimes", [])
-                            start_station, end_station, start_time, end_time = (
-                                "",
-                                "",
-                                "",
-                                "",
-                            )
-
-                            if stop_times:
-                                first_stop = stop_times[0]
-                                last_stop = stop_times[-1]
-                                s_name = first_stop.get("StationName", {})
-                                start_station = (
-                                    s_name.get("Zh_tw", "")
-                                    if isinstance(s_name, dict)
-                                    else str(s_name)
-                                )
-                                start_time = first_stop.get(
-                                    "DepartureTime", ""
-                                )[:5]
-                                e_name = last_stop.get("StationName", {})
-                                end_station = (
-                                    e_name.get("Zh_tw", "")
-                                    if isinstance(e_name, dict)
-                                    else str(e_name)
-                                )
-                                end_time = last_stop.get("ArrivalTime", "")[:5]
-
-                            results.append((
-                                train_no,
-                                train_num,
-                                date_str,
-                                start_station,
-                                start_time,
-                                end_station,
-                                end_time,
-                                status_sign,
-                            ))
-                return results
+                return [
+                    tuple(item) for item in cached_info.get("results", [])
+                ]
 
             # === 情境 B：資料成功更新 (HTTP 200) ===
             elif response.status_code == 200:
                 data = response.json()
                 new_last_modified = response.headers.get("Last-Modified")
+                results = parse_train_data(data, date_str)
 
-                # 更新快取
+                # 僅儲存 Last-Modified 標頭與輕量解析結果，避免檔案過大被 GitHub Push 阻擋
                 http_cache[api_date_str] = {
                     "last_modified": new_last_modified,
-                    "data": data,
+                    "results": results,
                 }
-
-                for item in data.get("TrainTimetables", []):
-                    train_info = item.get("TrainInfo", {})
-                    train_no = train_info.get("TrainNo")
-
-                    if train_no and train_no.isdigit():
-                        train_num = int(train_no)
-                        raw_note = train_info.get("Note", "")
-                        note = (
-                            raw_note.get("Zh_tw", "")
-                            if isinstance(raw_note, dict)
-                            else str(raw_note or "")
-                        )
-                        train_type_dict = train_info.get("TrainTypeName", {})
-                        train_type = (
-                            train_type_dict.get("Zh_tw", "")
-                            if isinstance(train_type_dict, dict)
-                            else str(train_type_dict)
-                        )
-
-                        if (
-                            is_extra_train(train_type, note, train_num)
-                            and train_no not in EXCLUDE_TRAINS
-                        ):
-                            status_sign = (
-                                "+"
-                                if "行駛" in note
-                                else ("-" if "停駛" in note else "")
-                            )
-                            stop_times = item.get("StopTimes", [])
-                            start_station, end_station, start_time, end_time = (
-                                "",
-                                "",
-                                "",
-                                "",
-                            )
-
-                            if stop_times:
-                                first_stop = stop_times[0]
-                                last_stop = stop_times[-1]
-                                s_name = first_stop.get("StationName", {})
-                                start_station = (
-                                    s_name.get("Zh_tw", "")
-                                    if isinstance(s_name, dict)
-                                    else str(s_name)
-                                )
-                                start_time = first_stop.get(
-                                    "DepartureTime", ""
-                                )[:5]
-                                e_name = last_stop.get("StationName", {})
-                                end_station = (
-                                    e_name.get("Zh_tw", "")
-                                    if isinstance(e_name, dict)
-                                    else str(e_name)
-                                )
-                                end_time = last_stop.get("ArrivalTime", "")[:5]
-
-                            results.append((
-                                train_no,
-                                train_num,
-                                date_str,
-                                start_station,
-                                start_time,
-                                end_station,
-                                end_time,
-                                status_sign,
-                            ))
 
                 print(
                     f"[V] {api_date_str} 抓取成功，找到 {len(results)} 筆加班車"
                 )
-                return results
+                return [tuple(item) for item in results]
 
             elif response.status_code in [401, 403]:
                 print(
@@ -618,7 +554,7 @@ def main():
                         date_entry = f"{date_str}{status_sign}"
                         train_dates[dir_key][train_no]["dates"].add(date_entry)
 
-        # 儲存 HTTP 快取與訓練狀態
+        # 儲存 HTTP 快取與列車狀態
         save_http_cache(http_cache)
         new_items = compare_new_trains(prev_data, train_dates)
         save_current_trains(train_dates)
@@ -640,3 +576,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+a
