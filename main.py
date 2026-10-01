@@ -25,7 +25,7 @@ if client_id_1 and client_secret_1:
         "name": "主 Key (Key 1)",
     })
 
-# 第二組金鑰（備援 Key）
+# 第二組金鑰（備援 Key 2）
 client_id_2 = os.environ.get("TDX_CLIENT_ID_2")
 client_secret_2 = os.environ.get("TDX_CLIENT_SECRET_2")
 if client_id_2 and client_secret_2:
@@ -33,6 +33,16 @@ if client_id_2 and client_secret_2:
         "id": client_id_2.strip(),
         "secret": client_secret_2.strip(),
         "name": "備用 Key (Key 2)",
+    })
+
+# 第三組金鑰（備援 Key 3）
+client_id_3 = os.environ.get("TDX_CLIENT_ID_3")
+client_secret_3 = os.environ.get("TDX_CLIENT_SECRET_3")
+if client_id_3 and client_secret_3:
+    KEY_PAIRS.append({
+        "id": client_id_3.strip(),
+        "secret": client_secret_3.strip(),
+        "name": "備用 Key (Key 3)",
     })
 
 TG_BOT_TOKEN = os.environ.get("TG_BOT_TOKEN")
@@ -128,7 +138,7 @@ def get_valid_token():
     """
     主備備援邏輯：
     1. 永遠優先驗證並使用 Key 1。
-    2. 只有當 Key 1 驗證失敗（帳密/權限無效）時，才依序遞補啟用 Key 2。
+    2. 只有當 Key 1 驗證失敗（帳密/權限無效）時，才依序遞補啟用 Key 2、Key 3。
     """
     global current_key_index, current_token
 
