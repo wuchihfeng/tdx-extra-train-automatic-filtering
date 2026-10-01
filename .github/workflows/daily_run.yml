@@ -34,9 +34,12 @@ jobs:
           # 🌟 第一組金鑰 (主 Key)
           TDX_CLIENT_ID: ${{ secrets.TDX_CLIENT_ID }}
           TDX_CLIENT_SECRET: ${{ secrets.TDX_CLIENT_SECRET }}
-          # 🌟 第二組金鑰 (備援 Key)
+          # 🌟 第二組金鑰 (備援 Key 2)
           TDX_CLIENT_ID_2: ${{ secrets.TDX_CLIENT_ID_2 }}
           TDX_CLIENT_SECRET_2: ${{ secrets.TDX_CLIENT_SECRET_2 }}
+          # 🌟 第三組金鑰 (備援 Key 3)
+          TDX_CLIENT_ID_3: ${{ secrets.TDX_CLIENT_ID_3 }}
+          TDX_CLIENT_SECRET_3: ${{ secrets.TDX_CLIENT_SECRET_3 }}
           # Telegram 設定 (設定兩個 Chat ID 確保同時傳送)
           TG_BOT_TOKEN: ${{ secrets.TG_BOT_TOKEN }}
           TG_CHAT_ID: ${{ secrets.TG_CHAT_ID }}
