@@ -189,8 +189,12 @@
 <body>
 
   <div class="container">
-    <header>
-      <h1>臺鐵加班車時刻表</h1>
+        <header>
+      <div>
+        <h1>臺鐵加班車時刻表</h1>
+        <!-- 👇 新增：開行日期區間顯示 -->
+        <div class="date-range" id="date-range" style="font-size: 0.9rem; color: #ff9800; font-weight: bold; margin-top: 4px;"></div>
+      </div>
       <div class="update-time" id="last-updated">載入中...</div>
     </header>
 
@@ -246,17 +250,24 @@
     // ==========================================
     // 3. 畫面渲染主邏輯
     // ==========================================
-    function renderTrains(json) {
+        function renderTrains(json) {
       const container = document.getElementById('train-list');
       const timeContainer = document.getElementById('last-updated');
+      const rangeContainer = document.getElementById('date-range'); // 👇 取得日期區間容器
 
       if (!container || !timeContainer) return;
 
       timeContainer.textContent = `最後更新於：${json.last_updated || '未知'}`;
       container.innerHTML = '';
 
+      // 👇 1. 如果 JSON 本身有提供 start_date 與 end_date，直接顯示
+      if (json.start_date && json.end_date) {
+        rangeContainer.textContent = `統計區間：${json.start_date} ～ ${json.end_date}`;
+      }
+
       const data = json.data || {};
       const allTrains = [];
+      const allDatesSet = new Set(); // 用於備用計算
 
       ['shun', 'ni'].forEach(dir => {
         if (data[dir]) {
@@ -264,14 +275,13 @@
             const trainData = data[dir][trainNo];
             const rawDates = trainData.dates || [];
 
-            // 1. 剔除帶有 '-' 的停駛日期
             const validDates = rawDates.filter(d => !d.includes('-'));
-
-            // 若剔除後沒有開行日期則跳過該車次
             if (validDates.length === 0) return;
 
-            // 2. 去掉 '+' 符號
             const cleanedDates = validDates.map(d => d.replace(/\+/g, '').trim());
+            
+            // 收集所有日期
+            cleanedDates.forEach(d => allDatesSet.add(d));
 
             allTrains.push({
               trainNo,
@@ -282,11 +292,20 @@
         }
       });
 
-      if (allTrains.length === 0) {
-        container.innerHTML = '<div class="status-msg">目前沒有搜尋到加班車資料。</div>';
-        return;
+      // 👇 2. 如果 JSON 沒寫死區間，自動從所有車次的日期算出「最早 ～ 最晚」
+      if ((!json.start_date || !json.end_date) && allDatesSet.size > 0) {
+        const sortedDates = Array.from(allDatesSet).sort();
+        const minDate = sortedDates[0];
+        const maxDate = sortedDates[sortedDates.length - 1];
+        rangeContainer.textContent = `開行區間：${minDate} ～ ${maxDate}`;
       }
 
+      if (allTrains.length === 0) {
+        container.innerHTML = '<div class="status-msg">目前沒有搜尋到加班車資料。</div>';
+        if (rangeContainer) rangeContainer.textContent = '';
+        return;
+      }
+          
       allTrains.sort((a, b) => parseInt(a.trainNo) - parseInt(b.trainNo));
 
       allTrains.forEach((train, index) => {
