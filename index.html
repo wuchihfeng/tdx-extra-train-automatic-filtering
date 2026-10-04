@@ -109,14 +109,12 @@
       color: #fff;
     }
 
-    /* 切換按鈕裡面的三角形圖示 */
     .toggle-btn .icon {
       font-size: 0.75rem;
       color: #ff9800;
       transition: transform 0.2s ease;
     }
 
-    /* 預設隱藏停靠站網格 */
     .stops-wrapper {
       display: none;
       margin-top: 12px;
@@ -124,19 +122,16 @@
       border-top: 1px dashed #333;
     }
 
-    /* 展開狀態 */
     .stops-wrapper.active {
       display: block;
     }
 
-    /* 電腦版站點網格 */
     .stops-grid {
       display: grid;
       grid-template-columns: repeat(auto-fill, minmax(185px, 1fr));
       gap: 8px;
     }
 
-    /* 單一車站小方塊 */
     .stop-item {
       background: #252525;
       border: 1px solid #333;
@@ -162,10 +157,9 @@
       white-space: nowrap;
     }
 
-    /* 📱 手機版專屬雙欄排列與優化 (螢幕寬度小於 600px 時) */
     @media (max-width: 600px) {
       .stops-grid {
-        grid-template-columns: repeat(2, 1fr) !important; /* 強制雙欄 */
+        grid-template-columns: repeat(2, 1fr) !important;
         gap: 6px;
       }
       
@@ -180,7 +174,7 @@
 
       .train-dates {
         margin-left: 0;
-        width: 100%; /* 手機版開行日期自動換行佔滿 */
+        width: 100%;
       }
     }
 
@@ -200,7 +194,6 @@
       <div class="update-time" id="last-updated">載入中...</div>
     </header>
 
-    <!-- 車站卡片渲染容器 -->
     <main id="train-list">
       <div class="status-msg">正在讀取最新的加班車資料...</div>
     </main>
@@ -208,10 +201,10 @@
 
   <script>
     // ==========================================
-    // 1. 備援模擬資料 (抓取 JSON 失敗時展示)
+    // 1. 備援模擬資料
     // ==========================================
     const mockJsonData = {
-      "last_updated": "2026-10-04 21:10:00",
+      "last_updated": "2026-10-04 21:10:00 (範例資料)",
       "data": {
         "shun": {
           "3102": {
@@ -280,12 +273,14 @@
             const trainData = data[dir][trainNo];
             const rawDates = trainData.dates || [];
 
-            // 1. 檢查是否有包含 "-" 的停駛/異動日期，有的話就不納入網頁顯示
-            const hasCancelSign = rawDates.some(d => d.includes('-'));
-            if (hasCancelSign) return;
+            // 1. 剔除帶有 '-' 的停駛日期
+            const validDates = rawDates.filter(d => !d.includes('-'));
 
-            // 2. 去掉日期旁邊的 "+" 符號
-            const cleanedDates = rawDates.map(d => d.replace(/\+/g, '').replace(/-/g, ''));
+            // 若剔除後沒有開行日期則跳過該車次
+            if (validDates.length === 0) return;
+
+            // 2. 去掉 '+' 符號
+            const cleanedDates = validDates.map(d => d.replace(/\+/g, '').trim());
 
             allTrains.push({
               trainNo,
@@ -301,7 +296,6 @@
         return;
       }
 
-      // 車次排序
       allTrains.sort((a, b) => parseInt(a.trainNo) - parseInt(b.trainNo));
 
       allTrains.forEach((train, index) => {
@@ -313,7 +307,6 @@
 
         const totalStops = train.stops || [];
         
-        // 站點時間防換行格式化
         const stopsHTML = totalStops.map((st, idx) => {
           let timeText = '';
           if (idx === 0) {
@@ -379,19 +372,18 @@
     }
 
     // ==========================================
-    // 5. 啟動與資料抓取 (含防快取機制)
+    // 5. 啟動與資料抓取
     // ==========================================
     async function initApp() {
       try {
-        // 加上 timestamp 防止瀏覽器強烈快取 JSON 檔案
         const cacheBuster = new Date().getTime();
-        const response = await fetch(`last_trains.json?v=${cacheBuster}`);
+        const response = await fetch(`./last_trains.json?v=${cacheBuster}`);
         
-        if (!response.ok) throw new Error('無法讀取 last_trains.json 檔案');
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
         const realJson = await response.json();
         renderTrains(realJson);
       } catch (err) {
-        console.warn('啟用備援資料展示：', err.message);
+        console.warn('讀取實體檔案失敗，啟用備援資料：', err.message);
         renderTrains(mockJsonData);
       }
     }
