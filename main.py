@@ -178,7 +178,7 @@ def is_extra_train(train_type, note, train_num):
 
 
 def parse_train_data(data, date_str):
-    """將 API 回傳的原始資料解析為加班車清單（輕量化，不儲存原始 JSON）"""
+    """將 API 回傳的原始資料解析為加班車清單（含全車站時刻資訊）"""
     results = []
     for item in data.get("TrainTimetables", []):
         train_info = item.get("TrainInfo", {})
@@ -213,8 +213,10 @@ def parse_train_data(data, date_str):
                     "",
                     "",
                 )
+                stops = []
 
                 if stop_times:
+                    # 抓頭尾資訊給 Telegram 使用
                     first_stop = stop_times[0]
                     last_stop = stop_times[-1]
                     s_name = first_stop.get("StationName", {})
@@ -232,6 +234,22 @@ def parse_train_data(data, date_str):
                     )
                     end_time = last_stop.get("ArrivalTime", "")[:5]
 
+                    # 收集完整的停靠站資料給網頁使用 (含區間車所有小站)
+                    for st in stop_times:
+                        st_name_dict = st.get("StationName", {})
+                        st_name = (
+                            st_name_dict.get("Zh_tw", "")
+                            if isinstance(st_name_dict, dict)
+                            else str(st_name_dict)
+                        )
+                        arr_time = st.get("ArrivalTime", "")[:5]
+                        dep_time = st.get("DepartureTime", "")[:5]
+                        stops.append({
+                            "station": st_name,
+                            "arrival": arr_time,
+                            "departure": dep_time,
+                        })
+
                 results.append([
                     train_no,
                     train_num,
@@ -241,6 +259,7 @@ def parse_train_data(data, date_str):
                     end_station,
                     end_time,
                     status_sign,
+                    stops,  # 👈 將停靠站資訊帶入結果中
                 ])
     return results
 
@@ -278,9 +297,7 @@ def fetch_single_day(date_obj, http_cache):
                 print(
                     f"[304 Cache Hit] {api_date_str} 資料未更新，直接使用快取（不消耗流量點數）"
                 )
-                return [
-                    tuple(item) for item in cached_info.get("results", [])
-                ]
+                return cached_info.get("results", [])
 
             # === 情境 B：資料成功更新 (HTTP 200) ===
             elif response.status_code == 200:
@@ -288,7 +305,7 @@ def fetch_single_day(date_obj, http_cache):
                 new_last_modified = response.headers.get("Last-Modified")
                 results = parse_train_data(data, date_str)
 
-                # 僅儲存 Last-Modified 標頭與輕量解析結果，避免檔案過大被 GitHub Push 阻擋
+                # 儲存 Last-Modified 標頭與完整解析結果
                 http_cache[api_date_str] = {
                     "last_modified": new_last_modified,
                     "results": results,
@@ -297,7 +314,7 @@ def fetch_single_day(date_obj, http_cache):
                 print(
                     f"[V] {api_date_str} 抓取成功，找到 {len(results)} 筆加班車"
                 )
-                return [tuple(item) for item in results]
+                return results
 
             elif response.status_code in [401, 403]:
                 print(
@@ -342,18 +359,26 @@ def load_previous_trains():
 
 
 def save_current_trains(train_dates):
+    """儲存含完整站點與更新時間的全新 JSON 資料結構"""
+    tz_taipei = timezone(timedelta(hours=8))
+    now_str = datetime.now(tz_taipei).strftime("%Y-%m-%d %H:%M:%S")
+
     serializable = {}
     for dir_key, trains in train_dates.items():
         serializable[dir_key] = {}
         for train_no, info in trains.items():
             serializable[dir_key][train_no] = {
-                "dates": list(info["dates"]),
+                "dates": sorted(list(info["dates"])),
                 "route": info["route"],
+                "stops": info.get("stops", []),  # 👈 寫入全站點時間表
             }
+
+    output_data = {"last_updated": now_str, "data": serializable}
+
     try:
         with open(STATE_FILE, "w", encoding="utf-8") as f:
-            json.dump(serializable, f, ensure_ascii=False, indent=2)
-        print("[System] 成功儲存目前狀態至 last_trains.json")
+            json.dump(output_data, f, ensure_ascii=False, indent=2)
+        print("[System] 成功儲存擴充狀態至 last_trains.json")
     except Exception as e:
         print(f"[!] 儲存 JSON 失敗: {e}")
 
@@ -362,10 +387,13 @@ def compare_new_trains(prev_data, current_train_dates):
     if not prev_data:
         return []
 
+    # 考量 JSON 資料結構升級 (有 last_updated 與 data 層)
+    prev_trains_data = prev_data.get("data", prev_data)
+
     new_items = []
     for dir_key in ["shun", "ni"]:
         current_dict = current_train_dates.get(dir_key, {})
-        prev_dict = prev_data.get(dir_key, {})
+        prev_dict = prev_trains_data.get(dir_key, {})
 
         for train_no, curr_info in current_dict.items():
             curr_dates = curr_info["dates"]
@@ -526,16 +554,18 @@ def main():
             for future in as_completed(future_to_date):
                 day_results = future.result()
                 if day_results:
-                    for (
-                        train_no,
-                        train_num,
-                        date_str,
-                        start_station,
-                        start_time,
-                        end_station,
-                        end_time,
-                        status_sign,
-                    ) in day_results:
+                    for item in day_results:
+                        (
+                            train_no,
+                            train_num,
+                            date_str,
+                            start_station,
+                            start_time,
+                            end_station,
+                            end_time,
+                            status_sign,
+                            stops,
+                        ) = item
                         total_found += 1
                         dir_key = "shun" if train_num % 2 == 0 else "ni"
 
@@ -559,6 +589,7 @@ def main():
                             train_dates[dir_key][train_no] = {
                                 "dates": set(),
                                 "route": route_str,
+                                "stops": stops,  # 👈 寫入停靠站
                             }
 
                         date_entry = f"{date_str}{status_sign}"
