@@ -207,36 +207,39 @@
     // ==========================================
     // 2. 車種顏色對應邏輯 (精確色號特製版)
     // ==========================================
+        // ==========================================
+    // 2. 車種特製顏色對應邏輯
+    // ==========================================
     function getTrainTypeColor(typeStr) {
-      if (!typeStr) return '#ffc107';
+      if (!typeStr) return '#0055b8'; // 預設藍色
 
-      // 1. 太魯閣號：取自照片特製偏黃暖金色
-      if (typeStr.includes('太魯閣')) {
-        return '#f1a100'; 
-      }
-
-      // 2. 普悠瑪號：取自照片特製鮮豔亮紅色
+      // 1. 普悠瑪號 (取自車頭亮紅色)
       if (typeStr.includes('普悠瑪')) {
-        return '#e60012'; 
+        return '#e60021';
       }
 
-      // 3. 新自強號 (EMU3000)：最深色 (深暗紅/栗紅)
-      if (typeStr.includes('EMU3000') || typeStr.includes('新自強')) {
-        return '#8b0000'; 
+      // 2. 太魯閣號 (取自車身金黃條紋)
+      if (typeStr.includes('太魯閣')) {
+        return '#f28500';
       }
 
-      // 4. 推拉式/一般自強號 (PP自強)：次深色 (標準自強紅)
+      // 3. 新自強號 (EMU3000 / 3000) -> 最深橘
+      if (typeStr.includes('3000') || typeStr.includes('新自強')) {
+        return '#d84315';
+      }
+
+      // 4. 推拉式自強號 / 一般自強號 -> 次之橘
       if (typeStr.includes('自強') || typeStr.includes('PP')) {
-        return '#d32f2f'; 
+        return '#ff6f00';
       }
 
-      // 5. 莒光號：經典橘色
+      // 5. 莒光號 -> 柔和橘
       if (typeStr.includes('莒光')) {
-        return '#ff9800'; 
+        return '#ff9800';
       }
 
-      // 6. 區間快 / 區間車 / 其他：亮黃色
-      return '#ffc107'; 
+      // 6. 區間快 / 區間車 -> 經典台鐵藍
+      return '#0055b8';
     }
 
 
