@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>臺鐵加班車資訊看板</title>
+  <style>
+    /* --- 全域橘黑極致暗黑風格 --- */
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      background: #121212;
+      color: #e0e0e0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      padding: 16px;
+      display: flex;
+      justify-content: center;
+    }
+
+    .container {
+      width: 100%;
+      max-width: 900px;
+    }
+
+    /* 頁首標題區 */
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 2px solid #ff9800;
+      padding-bottom: 12px;
+      margin-bottom: 20px;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 1.4rem;
+      color: #ff9800;
+      font-weight: 800;
+    }
+
+    .update-time {
+      font-size: 0.8rem;
+      color: #888;
+    }
+
+    /* 車次卡片 */
+    .train-card {
+      background: #1e1e1e;
+      border: 1px solid #333;
+      border-radius: 12px;
+      padding: 16px;
+      margin-bottom: 16px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+      transition: all 0.2s ease;
+    }
+
+    .train-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 10px;
+      flex-wrap: wrap;
+    }
+
+    .train-no {
+      font-size: 1.3rem;
+      font-weight: 800;
+    }
+
+    .train-route {
+      font-size: 1.05rem;
+      font-weight: 700;
+      color: #ff9800;
+    }
+
+    .train-dates {
+      font-size: 0.8rem;
+      color: #aaa;
+      background: #252525;
+      padding: 4px 8px;
+      border-radius: 4px;
+      margin-left: auto;
+    }
+
+    /* 折疊控制按鈕 */
+    .toggle-btn {
+      width: 100%;
+      background: #282828;
+      color: #ccc;
+      border: 1px solid #3a3a3a;
+      border-radius: 6px;
+      padding: 8px 12px;
+      font-size: 0.85rem;
+      font-weight: bold;
+      cursor: pointer;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 8px;
+      transition: background 0.2s;
+    }
+
+    .toggle-btn:hover {
+      background: #333;
+      color: #fff;
+    }
+
+    /* 切換按鈕裡面的三角形圖示 */
+    .toggle-btn .icon {
+      font-size: 0.75rem;
+      color: #ff9800;
+      transition: transform 0.2s ease;
+    }
+
+    /* 預設隱藏停靠站網格 */
+    .stops-wrapper {
+      display: none;
+      margin-top: 12px;
+      padding-top: 12px;
+      border-top: 1px dashed #333;
+    }
+
+    /* 展開狀態 */
+    .stops-wrapper.active {
+      display: block;
+    }
+
+    /* 電腦版站點網格 */
+    .stops-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(185px, 1fr));
+      gap: 8px;
+    }
+
+    /* 單一車站小方塊 */
+    .stop-item {
+      background: #252525;
+      border: 1px solid #333;
+      border-radius: 6px;
+      padding: 8px 10px;
+      font-size: 0.85rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      white-space: nowrap;
+    }
+
+    .station-name {
+      font-weight: bold;
+      color: #fff;
+      margin-right: 8px;
+      flex-shrink: 0;
+    }
+
+    .time-info {
+      font-size: 0.75rem;
+      font-family: monospace;
+      white-space: nowrap;
+    }
+
+    /* 📱 手機版專屬雙欄排列與優化 (螢幕寬度小於 600px 時) */
+    @media (max-width: 600px) {
+      .stops-grid {
+        grid-template-columns: repeat(2, 1fr) !important; /* 強制雙欄 */
+        gap: 6px;
+      }
+      
+      .stop-item {
+        padding: 6px 8px;
+        font-size: 0.78rem;
+      }
+
+      .time-info {
+        font-size: 0.7rem;
+      }
+
+      .train-dates {
+        margin-left: 0;
+        width: 100%; /* 手機版開行日期自動換行佔滿 */
+      }
+    }
+
+    .status-msg {
+      text-align: center;
+      padding: 40px;
+      color: #888;
+      font-size: 1rem;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="container">
+    <header>
+      <h1>臺鐵加班車時刻表</h1>
+      <div class="update-time" id="last-updated">載入中...</div>
+    </header>
+
+    <!-- 車站卡片渲染容器 -->
+    <main id="train-list">
+      <div class="status-msg">正在讀取最新的加班車資料...</div>
+    </main>
+  </div>
+
+  <script>
+    // ==========================================
+    // 1. 備援模擬資料 (抓取 JSON 失敗時展示)
+    // ==========================================
+    const mockJsonData = {
+      "last_updated": "2026-10-04 21:10:00",
+      "data": {
+        "shun": {
+          "3102": {
+            "type": "區間快",
+            "dates": ["10/10+", "10/11+"],
+            "route": "潮州 05:20 -> 新竹 10:15",
+            "stops": [
+              { "station": "潮州", "arrival": "05:20", "departure": "05:20" },
+              { "station": "屏東", "arrival": "05:42", "departure": "05:45" },
+              { "station": "高雄", "arrival": "06:05", "departure": "06:08" },
+              { "station": "臺南", "arrival": "06:50", "departure": "06:53" },
+              { "station": "嘉義", "arrival": "07:35", "departure": "07:38" },
+              { "station": "臺中", "arrival": "08:45", "departure": "08:48" },
+              { "station": "新竹", "arrival": "10:15", "departure": "10:15" }
+            ]
+          }
+        },
+        "ni": {
+          "5217": {
+            "type": "莒光號",
+            "dates": ["10/13+"],
+            "route": "花蓮 16:30 -> 樹林 19:10",
+            "stops": [
+              { "station": "花蓮", "arrival": "16:30", "departure": "16:30" },
+              { "station": "宜蘭", "arrival": "17:28", "departure": "17:30" },
+              { "station": "台北", "arrival": "18:42", "departure": "18:50" },
+              { "station": "樹林", "arrival": "19:10", "departure": "19:10" }
+            ]
+          }
+        }
+      }
+    };
+
+    // ==========================================
+    // 2. 車種顏色對應邏輯
+    // ==========================================
+    function getTrainTypeColor(typeStr) {
+      if (!typeStr) return '#ffcc80';
+      if (typeStr.includes('自強') || typeStr.includes('普悠瑪') || typeStr.includes('太魯閣') || typeStr.includes('PP')) {
+        return '#ff5500'; // 深橘色
+      }
+      if (typeStr.includes('莒光')) {
+        return '#ff9800'; // 中橘色
+      }
+      return '#ffcc80'; // 淺橘色
+    }
+
+    // ==========================================
+    // 3. 畫面渲染主邏輯
+    // ==========================================
+    function renderTrains(json) {
+      const container = document.getElementById('train-list');
+      const timeContainer = document.getElementById('last-updated');
+
+      if (!container || !timeContainer) return;
+
+      timeContainer.textContent = `最後更新於：${json.last_updated || '未知'}`;
+      container.innerHTML = '';
+
+      const data = json.data || {};
+      const allTrains = [];
+
+      ['shun', 'ni'].forEach(dir => {
+        if (data[dir]) {
+          Object.keys(data[dir]).forEach(trainNo => {
+            const trainData = data[dir][trainNo];
+            const rawDates = trainData.dates || [];
+
+            // 1. 檢查是否有包含 "-" 的停駛/異動日期，有的話就不納入網頁顯示
+            const hasCancelSign = rawDates.some(d => d.includes('-'));
+            if (hasCancelSign) return;
+
+            // 2. 去掉日期旁邊的 "+" 符號
+            const cleanedDates = rawDates.map(d => d.replace(/\+/g, '').replace(/-/g, ''));
+
+            allTrains.push({
+              trainNo,
+              ...trainData,
+              cleanDates: cleanedDates
+            });
+          });
+        }
+      });
+
+      if (allTrains.length === 0) {
+        container.innerHTML = '<div class="status-msg">目前沒有搜尋到加班車資料。</div>';
+        return;
+      }
+
+      // 車次排序
+      allTrains.sort((a, b) => parseInt(a.trainNo) - parseInt(b.trainNo));
+
+      allTrains.forEach((train, index) => {
+        const card = document.createElement('div');
+        card.className = 'train-card';
+
+        const themeColor = getTrainTypeColor(train.type);
+        card.style.borderLeft = `5px solid ${themeColor}`;
+
+        const totalStops = train.stops || [];
+        
+        // 站點時間防換行格式化
+        const stopsHTML = totalStops.map((st, idx) => {
+          let timeText = '';
+          if (idx === 0) {
+            timeText = `${st.departure || st.arrival}開`;
+          } else if (idx === totalStops.length - 1) {
+            timeText = `${st.arrival || st.departure}到`;
+          } else if (st.arrival === st.departure) {
+            timeText = `${st.departure}開`;
+          } else {
+            timeText = `${st.arrival}到 ${st.departure}開`;
+          }
+
+          return `
+            <div class="stop-item">
+              <span class="station-name">${st.station}</span>
+              <span class="time-info" style="color:${themeColor};">${timeText}</span>
+            </div>
+          `;
+        }).join('');
+
+        const typeBadge = train.type ? `<span style="background:${themeColor}; color:#121212; padding:2px 6px; border-radius:4px; font-size:0.75rem; font-weight:bold; margin-right:4px;">${train.type}</span>` : '';
+
+        const wrapperId = `stops-wrapper-${index}`;
+
+        card.innerHTML = `
+          <div class="train-header">
+            ${typeBadge}
+            <span class="train-no" style="color:${themeColor};">${train.trainNo} 次</span>
+            <span class="train-route">${train.route}</span>
+            <span class="train-dates">開行日期：${train.cleanDates.join(', ')}</span>
+          </div>
+
+          <button class="toggle-btn" onclick="toggleStops('${wrapperId}', this)">
+            <span>查看詳細停靠站 (${totalStops.length} 站)</span>
+            <span class="icon">▼</span>
+          </button>
+
+          <div id="${wrapperId}" class="stops-wrapper">
+            <div class="stops-grid">
+              ${stopsHTML || '<div style="color:#666;">無詳細停靠站資料</div>'}
+            </div>
+          </div>
+        `;
+
+        container.appendChild(card);
+      });
+    }
+
+    // ==========================================
+    // 4. 折疊切換 function
+    // ==========================================
+    function toggleStops(wrapperId, btn) {
+      const wrapper = document.getElementById(wrapperId);
+      const icon = btn.querySelector('.icon');
+      
+      if (wrapper.classList.contains('active')) {
+        wrapper.classList.remove('active');
+        icon.textContent = '▼';
+      } else {
+        wrapper.classList.add('active');
+        icon.textContent = '▲';
+      }
+    }
+
+    // ==========================================
+    // 5. 啟動與資料抓取 (含防快取機制)
+    // ==========================================
+    async function initApp() {
+      try {
+        // 加上 timestamp 防止瀏覽器強烈快取 JSON 檔案
+        const cacheBuster = new Date().getTime();
+        const response = await fetch(`last_trains.json?v=${cacheBuster}`);
+        
+        if (!response.ok) throw new Error('無法讀取 last_trains.json 檔案');
+        const realJson = await response.json();
+        renderTrains(realJson);
+      } catch (err) {
+        console.warn('啟用備援資料展示：', err.message);
+        renderTrains(mockJsonData);
+      }
+    }
+
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', initApp);
+    } else {
+      initApp();
+    }
+  </script>
+</body>
+</html>
