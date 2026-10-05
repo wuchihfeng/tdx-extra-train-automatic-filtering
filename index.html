@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>臺鐵加班車資訊看板</title>
+  <title>臺鐵45天內加班車資訊看板</title>
   <style>
     /* --- 全域橘黑極致暗黑風格 --- */
     * { box-sizing: border-box; }
@@ -20,7 +20,7 @@
 
     .container {
       width: 100%;
-      max-width: 900px;
+      max-width: 1200px; /* 放寬容器讓電腦版好發揮 */
     }
 
     /* 頁首標題區 */
@@ -47,88 +47,72 @@
       color: #888;
     }
 
-    /* 車次卡片 */
+    /* 車次卡片（預設電腦版：左右橫向對齊） */
     .train-card {
       background: #1e1e1e;
       border: 1px solid #333;
       border-radius: 12px;
-      padding: 16px;
+      padding: 20px;
       margin-bottom: 16px;
       box-shadow: 0 4px 12px rgba(0,0,0,0.3);
       transition: all 0.2s ease;
+      display: flex;
+      gap: 24px;
+      align-items: center;
     }
 
-    .train-header {
+    /* 左側車次與基本資訊區 */
+    .train-info-sidebar {
+      width: 180px;
+      flex-shrink: 0;
       display: flex;
-      align-items: center;
-      gap: 10px;
-      margin-bottom: 10px;
-      flex-wrap: wrap;
+      flex-direction: column;
+      gap: 6px;
     }
 
     .train-no {
-      font-size: 1.3rem;
-      font-weight: 800;
+      font-size: 1.8rem;
+      font-weight: 900;
+      line-height: 1.1;
+    }
+
+    .train-type-badge {
+      display: inline-block;
+      padding: 3px 8px;
+      border-radius: 4px;
+      font-size: 0.8rem;
+      font-weight: bold;
+      width: fit-content;
+      color: #ffffff;
     }
 
     .train-route {
-      font-size: 1.05rem;
+      font-size: 1.1rem;
       font-weight: 700;
-      color: #ff9800;
+      color: #ffffff;
+      margin-top: 4px;
     }
 
     .train-dates {
-      font-size: 0.8rem;
+      font-size: 0.75rem;
       color: #aaa;
       background: #252525;
       padding: 4px 8px;
       border-radius: 4px;
-      margin-left: auto;
+      margin-top: 6px;
+      display: inline-block;
     }
 
-    /* 折疊控制按鈕 */
-    .toggle-btn {
-      width: 100%;
-      background: #282828;
-      color: #ccc;
-      border: 1px solid #3a3a3a;
-      border-radius: 6px;
-      padding: 8px 12px;
-      font-size: 0.85rem;
-      font-weight: bold;
-      cursor: pointer;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-top: 8px;
-      transition: background 0.2s;
-    }
-
-    .toggle-btn:hover {
-      background: #333;
-      color: #fff;
-    }
-
-    .toggle-btn .icon {
-      font-size: 0.75rem;
-      color: #ff9800;
-      transition: transform 0.2s ease;
-    }
-
+    /* 右側停靠站網格區 */
     .stops-wrapper {
-      display: none;
-      margin-top: 12px;
-      padding-top: 12px;
-      border-top: 1px dashed #333;
+      flex: 1;
+      width: 100%;
     }
 
-    .stops-wrapper.active {
-      display: block;
-    }
-
+    /* 電腦版：一行固定 4 個 */
     .stops-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(185px, 1fr));
+      grid-template-columns: repeat(4, 1fr);
       gap: 8px;
     }
 
@@ -147,7 +131,7 @@
     .station-name {
       font-weight: bold;
       color: #fff;
-      margin-right: 8px;
+      margin-right: 6px;
       flex-shrink: 0;
     }
 
@@ -157,12 +141,62 @@
       white-space: nowrap;
     }
 
-    @media (max-width: 600px) {
+    /* 電腦版隱藏折疊按鈕 */
+    .toggle-btn {
+      display: none;
+    }
+
+    /* --- 手機版 RWD 自適應 (小於 768px 切回單欄折疊) --- */
+    @media (max-width: 768px) {
+      .train-card {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 12px;
+        padding: 16px;
+      }
+
+      .train-info-sidebar {
+        width: 100%;
+      }
+
+      .toggle-btn {
+        display: flex;
+        width: 100%;
+        background: #282828;
+        color: #ccc;
+        border: 1px solid #3a3a3a;
+        border-radius: 6px;
+        padding: 8px 12px;
+        font-size: 0.85rem;
+        font-weight: bold;
+        cursor: pointer;
+        justify-content: space-between;
+        align-items: center;
+        margin-top: 4px;
+      }
+
+      .toggle-btn .icon {
+        font-size: 0.75rem;
+        color: #ff9800;
+        transition: transform 0.2s ease;
+      }
+
+      .stops-wrapper {
+        display: none;
+        margin-top: 8px;
+        padding-top: 8px;
+        border-top: 1px dashed #333;
+      }
+
+      .stops-wrapper.active {
+        display: block;
+      }
+
       .stops-grid {
-        grid-template-columns: repeat(2, 1fr) !important;
+        grid-template-columns: repeat(2, 1fr);
         gap: 6px;
       }
-      
+
       .stop-item {
         padding: 6px 8px;
         font-size: 0.78rem;
@@ -170,11 +204,6 @@
 
       .time-info {
         font-size: 0.7rem;
-      }
-
-      .train-dates {
-        margin-left: 0;
-        width: 100%;
       }
     }
 
@@ -189,10 +218,9 @@
 <body>
 
   <div class="container">
-        <header>
+    <header>
       <div>
         <h1>臺鐵加班車時刻表</h1>
-        <!-- 👇 新增：開行日期區間顯示 -->
         <div class="date-range" id="date-range" style="font-size: 0.9rem; color: #ff9800; font-weight: bold; margin-top: 4px;"></div>
       </div>
       <div class="update-time" id="last-updated">載入中...</div>
@@ -204,70 +232,41 @@
   </div>
 
   <script>
-
     // ==========================================
-    // 2. 車種顏色對應邏輯
-    // ==========================================
-    // ==========================================
-    // 2. 車種顏色對應邏輯 (精確色號特製版)
-    // ==========================================
-        // ==========================================
-    // 2. 車種特製顏色對應邏輯
+    // 車種特製顏色對應邏輯
     // ==========================================
     function getTrainTypeColor(typeStr) {
-      if (!typeStr) return '#0055b8'; // 預設藍色
+      if (!typeStr) return '#0055b8';
 
-      // 1. 普悠瑪號 (取自車頭亮紅色)
-      if (typeStr.includes('普悠瑪')) {
-        return '#e60021';
-      }
-
-      // 2. 太魯閣號 (取自車身金黃條紋)
-      if (typeStr.includes('太魯閣')) {
-        return '#f28500';
-      }
-
-      // 3. 新自強號 (EMU3000 / 3000) -> 最深橘
-      if (typeStr.includes('3000') || typeStr.includes('新自強')) {
-        return '#d84315';
-      }
-
-      // 4. 推拉式自強號 / 一般自強號 -> 次之橘
-      if (typeStr.includes('自強') || typeStr.includes('PP')) {
-        return '#ff6f00';
-      }
-
-      // 5. 莒光號 -> 柔和橘
-      if (typeStr.includes('莒光')) {
-        return '#ff9800';
-      }
-
-      // 6. 區間快 / 區間車 -> 經典台鐵藍
-      return '#0055b8';
+      if (typeStr.includes('普悠瑪')) return '#e60021';
+      if (typeStr.includes('太魯閣')) return '#f28500';
+      if (typeStr.includes('3000') || typeStr.includes('新自強')) return '#d84315';
+      if (typeStr.includes('自強') || typeStr.includes('PP')) return '#ff6f00';
+      if (typeStr.includes('莒光')) return '#ff9800';
+      
+      return '#0055b8'; // 區間/預設藍
     }
 
-
     // ==========================================
-    // 3. 畫面渲染主邏輯
+    // 畫面渲染主邏輯
     // ==========================================
-        function renderTrains(json) {
+    function renderTrains(json) {
       const container = document.getElementById('train-list');
       const timeContainer = document.getElementById('last-updated');
-      const rangeContainer = document.getElementById('date-range'); // 👇 取得日期區間容器
+      const rangeContainer = document.getElementById('date-range');
 
       if (!container || !timeContainer) return;
 
       timeContainer.textContent = `最後更新於：${json.last_updated || '未知'}`;
       container.innerHTML = '';
 
-      // 👇 1. 如果 JSON 本身有提供 start_date 與 end_date，直接顯示
       if (json.start_date && json.end_date) {
         rangeContainer.textContent = `統計區間：${json.start_date} ～ ${json.end_date}`;
       }
 
       const data = json.data || {};
       const allTrains = [];
-      const allDatesSet = new Set(); // 用於備用計算
+      const allDatesSet = new Set();
 
       ['shun', 'ni'].forEach(dir => {
         if (data[dir]) {
@@ -279,8 +278,6 @@
             if (validDates.length === 0) return;
 
             const cleanedDates = validDates.map(d => d.replace(/\+/g, '').trim());
-            
-            // 收集所有日期
             cleanedDates.forEach(d => allDatesSet.add(d));
 
             allTrains.push({
@@ -292,12 +289,9 @@
         }
       });
 
-      // 👇 2. 如果 JSON 沒寫死區間，自動從所有車次的日期算出「最早 ～ 最晚」
       if ((!json.start_date || !json.end_date) && allDatesSet.size > 0) {
         const sortedDates = Array.from(allDatesSet).sort();
-        const minDate = sortedDates[0];
-        const maxDate = sortedDates[sortedDates.length - 1];
-        rangeContainer.textContent = `開行區間：${minDate} ～ ${maxDate}`;
+        rangeContainer.textContent = `開行區間：${sortedDates[0]} ～ ${sortedDates[sortedDates.length - 1]}`;
       }
 
       if (allTrains.length === 0) {
@@ -313,7 +307,7 @@
         card.className = 'train-card';
 
         const themeColor = getTrainTypeColor(train.type);
-        card.style.borderLeft = `5px solid ${themeColor}`;
+        card.style.borderLeft = `6px solid ${themeColor}`;
 
         const totalStops = train.stops || [];
         
@@ -326,7 +320,7 @@
           } else if (st.arrival === st.departure) {
             timeText = `${st.departure}開`;
           } else {
-            timeText = `${st.arrival}到 ${st.departure}開`;
+            timeText = `${st.arrival}到→${st.departure}開`;
           }
 
           return `
@@ -337,23 +331,28 @@
           `;
         }).join('');
 
-        const typeBadge = train.type ? `<span style="background:${themeColor}; color:#121212; padding:2px 6px; border-radius:4px; font-size:0.75rem; font-weight:bold; margin-right:4px;">${train.type}</span>` : '';
+        const typeBadge = train.type 
+          ? `<span class="train-type-badge" style="background:${themeColor};">${train.type}</span>` 
+          : '';
 
         const wrapperId = `stops-wrapper-${index}`;
 
         card.innerHTML = `
-          <div class="train-header">
-            ${typeBadge}
+          <!-- 左側：車次資訊 -->
+          <div class="train-info-sidebar">
             <span class="train-no" style="color:${themeColor};">${train.trainNo} 次</span>
-            <span class="train-route">${train.route}</span>
-            <span class="train-dates">開行日期：${train.cleanDates.join(', ')}</span>
+            ${typeBadge}
+            <div class="train-route">${train.route}</div>
+            <div class="train-dates">開行日期：${train.cleanDates.join(', ')}</div>
           </div>
 
+          <!-- 手機版折疊按鈕 -->
           <button class="toggle-btn" onclick="toggleStops('${wrapperId}', this)">
             <span>查看詳細停靠站 (${totalStops.length} 站)</span>
             <span class="icon">▼</span>
           </button>
 
+          <!-- 右側：一行 4 個的停靠站矩陣 -->
           <div id="${wrapperId}" class="stops-wrapper">
             <div class="stops-grid">
               ${stopsHTML || '<div style="color:#666;">無詳細停靠站資料</div>'}
@@ -365,9 +364,6 @@
       });
     }
 
-    // ==========================================
-    // 4. 折疊切換 function
-    // ==========================================
     function toggleStops(wrapperId, btn) {
       const wrapper = document.getElementById(wrapperId);
       const icon = btn.querySelector('.icon');
@@ -381,9 +377,6 @@
       }
     }
 
-    // ==========================================
-    // 5. 啟動與資料抓取
-    // ==========================================
     async function initApp() {
       try {
         const cacheBuster = new Date().getTime();
@@ -394,7 +387,6 @@
         renderTrains(realJson);
       } catch (err) {
         console.warn('讀取實體檔案失敗，啟用備援資料：', err.message);
-        renderTrains(mockJsonData);
       }
     }
 
