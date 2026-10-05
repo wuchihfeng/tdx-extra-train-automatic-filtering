@@ -47,29 +47,31 @@
       color: #888;
     }
 
-    /* 車次卡片（預設電腦版：左右橫向對齊） */
+  /* 車次卡片（電腦版） */
     .train-card {
       background: #1e1e1e;
       border: 1px solid #333;
       border-radius: 12px;
-      padding: 20px;
+      padding: 18px 20px;
       margin-bottom: 16px;
       box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-      transition: all 0.2s ease;
       display: flex;
-      gap: 24px;
-      align-items: center;
+      gap: 20px;
+      align-items: center; /* 上下置中對齊 */
     }
-
-    /* 左側車次與基本資訊區 */
+    
+/* 左側車次資訊區：強制固定寬度，絕不被擠壓 */
     .train-info-sidebar {
-      width: 180px;
-      flex-shrink: 0;
+      width: 220px;
+      min-width: 220px; /* 固定最小寬度 */
+      flex-shrink: 0;   /* 禁止壓縮 */
       display: flex;
       flex-direction: column;
       gap: 6px;
+      padding-right: 16px;
+      border-right: 1px dashed #333; /* 加上左右分隔線，視覺更俐落 */
     }
-
+    
     .train-no {
       font-size: 1.8rem;
       font-weight: 900;
@@ -116,7 +118,7 @@
       gap: 8px;
     }
 
-    .stop-item {
+  .stop-item {
       background: #252525;
       border: 1px solid #333;
       border-radius: 6px;
@@ -125,9 +127,8 @@
       display: flex;
       justify-content: space-between;
       align-items: center;
-      white-space: nowrap;
     }
-
+    
     .station-name {
       font-weight: bold;
       color: #fff;
@@ -326,7 +327,8 @@
           return `
             <div class="stop-item">
               <span class="station-name">${st.station}</span>
-              <span class="time-info" style="color:${themeColor};">${timeText}</span>
+              <!-- 👇 修改點：改用高對比亮橘色，解決藍色車次時間看不清的問題 -->
+              <span class="time-info" style="color: #ffb74d; font-weight: 600;">${timeText}</span>
             </div>
           `;
         }).join('');
@@ -396,5 +398,6 @@
       initApp();
     }
   </script>
-</body>
+
+ </body>
 </html>
