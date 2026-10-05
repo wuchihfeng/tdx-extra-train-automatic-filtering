@@ -60,16 +60,16 @@
       align-items: center; /* 上下置中對齊 */
     }
     
-/* 左側車次資訊區：強制固定寬度，絕不被擠壓 */
+  /* 左側車次資訊區：加大寬度至 250px */
     .train-info-sidebar {
-      width: 220px;
-      min-width: 220px; /* 固定最小寬度 */
-      flex-shrink: 0;   /* 禁止壓縮 */
+      width: 250px;         /* 從 220px 加寬到 250px */
+      min-width: 290px;     /* 固定最小寬度，避免擠壓 */
+      flex-shrink: 0;       /* 禁止壓縮 */
       display: flex;
       flex-direction: column;
       gap: 6px;
       padding-right: 16px;
-      border-right: 1px dashed #333; /* 加上左右分隔線，視覺更俐落 */
+      border-right: 1px dashed #333;
     }
     
     .train-no {
@@ -78,16 +78,20 @@
       line-height: 1.1;
     }
 
+    /* 車種標籤：優化長文字換行與間距 */
     .train-type-badge {
       display: inline-block;
-      padding: 3px 8px;
+      padding: 4px 10px;
       border-radius: 4px;
-      font-size: 0.8rem;
+      font-size: 0.82rem;
       font-weight: bold;
       width: fit-content;
+      max-width: 100%;       /* 避免超越邊框 */
       color: #ffffff;
+      line-height: 1.3;
+      word-break: break-word; /* 允許長字串適當換行 */
     }
-
+    
     .train-route {
       font-size: 1.1rem;
       font-weight: 700;
