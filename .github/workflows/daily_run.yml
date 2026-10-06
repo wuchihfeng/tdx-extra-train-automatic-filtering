@@ -51,5 +51,9 @@ jobs:
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          
+          # 💡 新增：推送前先拉取遠端最新變更並進行 rebase，避免拒絕推送
+          git pull origin main --rebase || echo "No rebase needed"
+          
           git add last_trains.json http_cache.json
           git diff --quiet && git diff --staged --quiet || (git commit -m "chore: auto update state and http cache" && git push)
