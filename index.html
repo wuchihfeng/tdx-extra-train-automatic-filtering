@@ -237,6 +237,7 @@
   </div>
 
   <script>
+  <script>
     // ==========================================
     // 車種特製顏色對應邏輯
     // ==========================================
@@ -270,7 +271,7 @@
       }
 
       const data = json.data || {};
-      const allTrains = [];
+      const trainEntries = [];
       const allDatesSet = new Set();
 
       ['shun', 'ni'].forEach(dir => {
@@ -283,12 +284,14 @@
             if (validDates.length === 0) return;
 
             const cleanedDates = validDates.map(d => d.replace(/\+/g, '').trim());
-            cleanedDates.forEach(d => allDatesSet.add(d));
-
-            allTrains.push({
-              trainNo,
-              ...trainData,
-              cleanDates: cleanedDates
+            cleanedDates.forEach(d => {
+              allDatesSet.add(d);
+              // 將每個開行日期拆成獨立條目，方便進行「開車日期優先 -> 車次編號」排序
+              trainEntries.push({
+                trainNo,
+                ...trainData,
+                runDate: d
+              });
             });
           });
         }
@@ -299,15 +302,21 @@
         rangeContainer.textContent = `開行區間：${sortedDates[0]} ～ ${sortedDates[sortedDates.length - 1]}`;
       }
 
-      if (allTrains.length === 0) {
+      if (trainEntries.length === 0) {
         container.innerHTML = '<div class="status-msg">目前沒有搜尋到加班車資料。</div>';
         if (rangeContainer) rangeContainer.textContent = '';
         return;
       }
           
-      allTrains.sort((a, b) => parseInt(a.trainNo) - parseInt(b.trainNo));
+      // 核心修改：排序邏輯（優先比對開車日期 runDate，相同時再比對車次數字 trainNo）
+      trainEntries.sort((a, b) => {
+        if (a.runDate !== b.runDate) {
+          return a.runDate.localeCompare(b.runDate);
+        }
+        return parseInt(a.trainNo) - parseInt(b.trainNo);
+      });
 
-      allTrains.forEach((train, index) => {
+      trainEntries.forEach((train, index) => {
         const card = document.createElement('div');
         card.className = 'train-card';
 
@@ -331,7 +340,6 @@
           return `
             <div class="stop-item">
               <span class="station-name">${st.station}</span>
-              <!-- 👇 修改點：改用高對比亮橘色，解決藍色車次時間看不清的問題 -->
               <span class="time-info" style="color: #ffb74d; font-weight: 600;">${timeText}</span>
             </div>
           `;
@@ -349,7 +357,7 @@
             <span class="train-no" style="color:${themeColor};">${train.trainNo} 次</span>
             ${typeBadge}
             <div class="train-route">${train.route}</div>
-            <div class="train-dates">開行日期：${train.cleanDates.join(', ')}</div>
+            <div class="train-dates">開行日期：${train.runDate}</div>
           </div>
 
           <!-- 手機版折疊按鈕 -->
@@ -402,6 +410,5 @@
       initApp();
     }
   </script>
-
  </body>
 </html>
