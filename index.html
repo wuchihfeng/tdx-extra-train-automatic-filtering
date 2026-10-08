@@ -47,7 +47,7 @@
       color: #888;
     }
 
-  /* 車次卡片（電腦版） */
+    /* 車次卡片（電腦版） */
     .train-card {
       background: #1e1e1e;
       border: 1px solid #333;
@@ -60,10 +60,10 @@
       align-items: center; /* 上下置中對齊 */
     }
     
-  /* 左側車次資訊區：加大寬度至 245px */
+    /* 左側車次資訊區：加大寬度至 245px */
     .train-info-sidebar {
-      width: 245px;         /* 從 220px 加寬到 245px */
-      min-width: 245px;     /* 固定最小寬度，避免擠壓 */
+      width: 245px;         /* 固定寬度，避免擠壓 */
+      min-width: 245px;
       flex-shrink: 0;       /* 禁止壓縮 */
       display: flex;
       flex-direction: column;
@@ -107,6 +107,7 @@
       border-radius: 4px;
       margin-top: 6px;
       display: inline-block;
+      word-break: break-all;
     }
 
     /* 右側停靠站網格區 */
@@ -122,7 +123,7 @@
       gap: 8px;
     }
 
-  .stop-item {
+    .stop-item {
       background: #252525;
       border: 1px solid #333;
       border-radius: 6px;
@@ -162,6 +163,10 @@
 
       .train-info-sidebar {
         width: 100%;
+        border-right: none;
+        border-bottom: 1px dashed #333;
+        padding-right: 0;
+        padding-bottom: 12px;
       }
 
       .toggle-btn {
@@ -190,7 +195,6 @@
         display: none;
         margin-top: 8px;
         padding-top: 8px;
-        border-top: 1px dashed #333;
       }
 
       .stops-wrapper.active {
@@ -237,7 +241,6 @@
   </div>
 
   <script>
-  <script>
     // ==========================================
     // 車種特製顏色對應邏輯
     // ==========================================
@@ -250,7 +253,7 @@
       if (typeStr.includes('自強') || typeStr.includes('PP')) return '#ff6f00';
       if (typeStr.includes('莒光')) return '#ff9800';
       
-      return '#4BE13A'; // 區間
+      return '#4BE13A'; // 區間 / 區間快
     }
 
     // ==========================================
@@ -271,7 +274,7 @@
       }
 
       const data = json.data || {};
-      const trainEntries = [];
+      const allTrains = [];
       const allDatesSet = new Set();
 
       ['shun', 'ni'].forEach(dir => {
@@ -280,18 +283,17 @@
             const trainData = data[dir][trainNo];
             const rawDates = trainData.dates || [];
 
+            // 過濾開行日期
             const validDates = rawDates.filter(d => !d.includes('-'));
             if (validDates.length === 0) return;
 
             const cleanedDates = validDates.map(d => d.replace(/\+/g, '').trim());
-            cleanedDates.forEach(d => {
-              allDatesSet.add(d);
-              // 將每個開行日期拆成獨立條目，方便進行「開車日期優先 -> 車次編號」排序
-              trainEntries.push({
-                trainNo,
-                ...trainData,
-                runDate: d
-              });
+            cleanedDates.forEach(d => allDatesSet.add(d));
+
+            allTrains.push({
+              trainNo,
+              ...trainData,
+              cleanDates: cleanedDates
             });
           });
         }
@@ -302,21 +304,16 @@
         rangeContainer.textContent = `開行區間：${sortedDates[0]} ～ ${sortedDates[sortedDates.length - 1]}`;
       }
 
-      if (trainEntries.length === 0) {
+      if (allTrains.length === 0) {
         container.innerHTML = '<div class="status-msg">目前沒有搜尋到加班車資料。</div>';
         if (rangeContainer) rangeContainer.textContent = '';
         return;
       }
           
-      // 核心修改：排序邏輯（優先比對開車日期 runDate，相同時再比對車次數字 trainNo）
-      trainEntries.sort((a, b) => {
-        if (a.runDate !== b.runDate) {
-          return a.runDate.localeCompare(b.runDate);
-        }
-        return parseInt(a.trainNo) - parseInt(b.trainNo);
-      });
+      // 依車次數字排序
+      allTrains.sort((a, b) => parseInt(a.trainNo) - parseInt(b.trainNo));
 
-      trainEntries.forEach((train, index) => {
+      allTrains.forEach((train, index) => {
         const card = document.createElement('div');
         card.className = 'train-card';
 
@@ -357,7 +354,7 @@
             <span class="train-no" style="color:${themeColor};">${train.trainNo} 次</span>
             ${typeBadge}
             <div class="train-route">${train.route}</div>
-            <div class="train-dates">開行日期：${train.runDate}</div>
+            <div class="train-dates">開行日期：${train.cleanDates.join(', ')}</div>
           </div>
 
           <!-- 手機版折疊按鈕 -->
@@ -366,7 +363,7 @@
             <span class="icon">▼</span>
           </button>
 
-          <!-- 右側：一行 4 個的停靠站矩陣 -->
+          <!-- 右側：停靠站矩陣 -->
           <div id="${wrapperId}" class="stops-wrapper">
             <div class="stops-grid">
               ${stopsHTML || '<div style="color:#666;">無詳細停靠站資料</div>'}
@@ -396,11 +393,16 @@
         const cacheBuster = new Date().getTime();
         const response = await fetch(`./last_trains.json?v=${cacheBuster}`);
         
-        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        if (!response.ok) throw new Error(`HTTP 錯誤狀態: ${response.status}`);
         const realJson = await response.json();
         renderTrains(realJson);
       } catch (err) {
-        console.warn('讀取實體檔案失敗，啟用備援資料：', err.message);
+        console.error('讀取 JSON 資料失敗：', err.message);
+        document.getElementById('train-list').innerHTML = `
+          <div class="status-msg" style="color: #ff5252;">
+            資料讀取失敗，請確認 <code>last_trains.json</code> 檔案格式是否正確。
+          </div>
+        `;
       }
     }
 
@@ -410,5 +412,6 @@
       initApp();
     }
   </script>
- </body>
+
+</body>
 </html>
