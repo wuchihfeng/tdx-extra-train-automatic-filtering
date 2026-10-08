@@ -20,7 +20,7 @@
 
     .container {
       width: 100%;
-      max-width: 1200px; /* 放寬容器讓電腦版好發揮 */
+      max-width: 1200px;
     }
 
     /* 頁首標題區 */
@@ -57,14 +57,14 @@
       box-shadow: 0 4px 12px rgba(0,0,0,0.3);
       display: flex;
       gap: 20px;
-      align-items: center; /* 上下置中對齊 */
+      align-items: center;
     }
     
-    /* 左側車次資訊區：加大寬度至 245px */
+    /* 左側車次資訊區 */
     .train-info-sidebar {
-      width: 245px;         /* 固定寬度，避免擠壓 */
+      width: 245px;
       min-width: 245px;
-      flex-shrink: 0;       /* 禁止壓縮 */
+      flex-shrink: 0;
       display: flex;
       flex-direction: column;
       gap: 6px;
@@ -78,7 +78,6 @@
       line-height: 1.1;
     }
 
-    /* 車種標籤：優化長文字換行與間距 */
     .train-type-badge {
       display: inline-block;
       padding: 4px 10px;
@@ -86,10 +85,10 @@
       font-size: 0.82rem;
       font-weight: bold;
       width: fit-content;
-      max-width: 100%;       /* 避免超越邊框 */
+      max-width: 100%;
       color: #ffffff;
       line-height: 1.3;
-      word-break: break-word; /* 允許長字串適當換行 */
+      word-break: break-word;
     }
     
     .train-route {
@@ -116,7 +115,6 @@
       width: 100%;
     }
 
-    /* 電腦版：一行固定 4 個 */
     .stops-grid {
       display: grid;
       grid-template-columns: repeat(4, 1fr);
@@ -147,12 +145,11 @@
       white-space: nowrap;
     }
 
-    /* 電腦版隱藏折疊按鈕 */
     .toggle-btn {
       display: none;
     }
 
-    /* --- 手機版 RWD 自適應 (小於 768px 切回單欄折疊) --- */
+    /* 手機版 RWD */
     @media (max-width: 768px) {
       .train-card {
         flex-direction: column;
@@ -241,9 +238,6 @@
   </div>
 
   <script>
-    // ==========================================
-    // 車種特製顏色對應邏輯
-    // ==========================================
     function getTrainTypeColor(typeStr) {
       if (!typeStr) return '#0055b8';
 
@@ -253,12 +247,9 @@
       if (typeStr.includes('自強') || typeStr.includes('PP')) return '#ff6f00';
       if (typeStr.includes('莒光')) return '#ff9800';
       
-      return '#4BE13A'; // 區間 / 區間快
+      return '#4BE13A';
     }
 
-    // ==========================================
-    // 畫面渲染主邏輯
-    // ==========================================
     function renderTrains(json) {
       const container = document.getElementById('train-list');
       const timeContainer = document.getElementById('last-updated');
@@ -283,11 +274,14 @@
             const trainData = data[dir][trainNo];
             const rawDates = trainData.dates || [];
 
-            // 過濾開行日期
             const validDates = rawDates.filter(d => !d.includes('-'));
             if (validDates.length === 0) return;
 
-            const cleanedDates = validDates.map(d => d.replace(/\+/g, '').trim());
+            // 清理並進行內部日期排序
+            const cleanedDates = validDates
+              .map(d => d.replace(/\+/g, '').trim())
+              .sort();
+
             cleanedDates.forEach(d => allDatesSet.add(d));
 
             allTrains.push({
@@ -310,8 +304,21 @@
         return;
       }
           
-      // 依車次數字排序
-      allTrains.sort((a, b) => parseInt(a.trainNo) - parseInt(b.trainNo));
+      // ==========================================
+      // 多重排序：優先比較開行日期，其次比較車次數字
+      // ==========================================
+      allTrains.sort((a, b) => {
+        const firstDateA = a.cleanDates[0] || '';
+        const firstDateB = b.cleanDates[0] || '';
+
+        // 1. 先比開行日期（由早到晚）
+        if (firstDateA !== firstDateB) {
+          return firstDateA.localeCompare(firstDateB);
+        }
+
+        // 2. 日期相同，再比車次數字（由小到大）
+        return parseInt(a.trainNo) - parseInt(b.trainNo);
+      });
 
       allTrains.forEach((train, index) => {
         const card = document.createElement('div');
@@ -349,7 +356,6 @@
         const wrapperId = `stops-wrapper-${index}`;
 
         card.innerHTML = `
-          <!-- 左側：車次資訊 -->
           <div class="train-info-sidebar">
             <span class="train-no" style="color:${themeColor};">${train.trainNo} 次</span>
             ${typeBadge}
@@ -357,13 +363,11 @@
             <div class="train-dates">開行日期：${train.cleanDates.join(', ')}</div>
           </div>
 
-          <!-- 手機版折疊按鈕 -->
           <button class="toggle-btn" onclick="toggleStops('${wrapperId}', this)">
             <span>查看詳細停靠站 (${totalStops.length} 站)</span>
             <span class="icon">▼</span>
           </button>
 
-          <!-- 右側：停靠站矩陣 -->
           <div id="${wrapperId}" class="stops-wrapper">
             <div class="stops-grid">
               ${stopsHTML || '<div style="color:#666;">無詳細停靠站資料</div>'}
