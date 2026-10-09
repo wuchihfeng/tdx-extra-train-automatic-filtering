@@ -1,5 +1,5 @@
 {
-  "last_updated": "2026-10-09 01:44:45",
+  "last_updated": "2026-10-09 10:43:43",
   "data": {
     "shun": {
       "5114": {
@@ -497,6 +497,75 @@
           }
         ]
       },
+      "5290": {
+        "type": "太魯閣(太魯閣)",
+        "dates": [
+          "10/09+"
+        ],
+        "route": "樹林 09:22 -> 臺東 14:06",
+        "stops": [
+          {
+            "station": "樹林",
+            "arrival": "09:20",
+            "departure": "09:22"
+          },
+          {
+            "station": "板橋",
+            "arrival": "09:29",
+            "departure": "09:30"
+          },
+          {
+            "station": "臺北",
+            "arrival": "09:38",
+            "departure": "09:41"
+          },
+          {
+            "station": "松山",
+            "arrival": "09:47",
+            "departure": "09:48"
+          },
+          {
+            "station": "花蓮",
+            "arrival": "11:53",
+            "departure": "11:57"
+          },
+          {
+            "station": "鳳林",
+            "arrival": "12:19",
+            "departure": "12:21"
+          },
+          {
+            "station": "光復",
+            "arrival": "12:29",
+            "departure": "12:31"
+          },
+          {
+            "station": "瑞穗",
+            "arrival": "12:43",
+            "departure": "12:45"
+          },
+          {
+            "station": "玉里",
+            "arrival": "13:07",
+            "departure": "13:09"
+          },
+          {
+            "station": "池上",
+            "arrival": "13:25",
+            "departure": "13:26"
+          },
+          {
+            "station": "關山",
+            "arrival": "13:36",
+            "departure": "13:42"
+          },
+          {
+            "station": "臺東",
+            "arrival": "14:06",
+            "departure": "14:06"
+          }
+        ]
+      },
       "5370": {
         "type": "普悠瑪(普悠瑪)",
         "dates": [
@@ -704,6 +773,60 @@
             "station": "七堵",
             "arrival": "20:24",
             "departure": "20:24"
+          }
+        ]
+      },
+      "5312": {
+        "type": "普悠瑪(普悠瑪)",
+        "dates": [
+          "10/10+"
+        ],
+        "route": "臺東 21:30 -> 新左營 23:48",
+        "stops": [
+          {
+            "station": "臺東",
+            "arrival": "21:30",
+            "departure": "21:30"
+          },
+          {
+            "station": "知本",
+            "arrival": "21:39",
+            "departure": "21:40"
+          },
+          {
+            "station": "太麻里",
+            "arrival": "21:49",
+            "departure": "21:50"
+          },
+          {
+            "station": "枋寮",
+            "arrival": "22:46",
+            "departure": "22:48"
+          },
+          {
+            "station": "潮州",
+            "arrival": "23:05",
+            "departure": "23:07"
+          },
+          {
+            "station": "屏東",
+            "arrival": "23:17",
+            "departure": "23:19"
+          },
+          {
+            "station": "鳳山",
+            "arrival": "23:29",
+            "departure": "23:30"
+          },
+          {
+            "station": "高雄",
+            "arrival": "23:35",
+            "departure": "23:38"
+          },
+          {
+            "station": "新左營",
+            "arrival": "23:48",
+            "departure": "23:48"
           }
         ]
       },
@@ -2635,6 +2758,60 @@
             "station": "臺北",
             "arrival": "02:08",
             "departure": "02:08"
+          }
+        ]
+      },
+      "5311": {
+        "type": "普悠瑪(普悠瑪)",
+        "dates": [
+          "10/10+"
+        ],
+        "route": "新左營 15:40 -> 臺東 18:15",
+        "stops": [
+          {
+            "station": "新左營",
+            "arrival": "15:40",
+            "departure": "15:40"
+          },
+          {
+            "station": "高雄",
+            "arrival": "15:48",
+            "departure": "15:50"
+          },
+          {
+            "station": "鳳山",
+            "arrival": "15:55",
+            "departure": "15:56"
+          },
+          {
+            "station": "屏東",
+            "arrival": "16:06",
+            "departure": "16:08"
+          },
+          {
+            "station": "潮州",
+            "arrival": "16:18",
+            "departure": "16:19"
+          },
+          {
+            "station": "枋寮",
+            "arrival": "16:43",
+            "departure": "16:46"
+          },
+          {
+            "station": "太麻里",
+            "arrival": "17:49",
+            "departure": "17:51"
+          },
+          {
+            "station": "知本",
+            "arrival": "18:00",
+            "departure": "18:03"
+          },
+          {
+            "station": "臺東",
+            "arrival": "18:15",
+            "departure": "18:15"
           }
         ]
       },

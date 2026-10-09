@@ -1493,7 +1493,7 @@
     ]
   },
   "2026-10-09": {
-    "last_modified": "Fri, 02 Oct 2026 21:49:16 GMT",
+    "last_modified": "Thu, 08 Oct 2026 23:39:17 GMT",
     "results": [
       [
         "5105",
@@ -2284,6 +2284,79 @@
         "普悠瑪(普悠瑪)"
       ],
       [
+        "5290",
+        5290,
+        "10/09",
+        "樹林",
+        "09:22",
+        "臺東",
+        "14:06",
+        "+",
+        [
+          {
+            "station": "樹林",
+            "arrival": "09:20",
+            "departure": "09:22"
+          },
+          {
+            "station": "板橋",
+            "arrival": "09:29",
+            "departure": "09:30"
+          },
+          {
+            "station": "臺北",
+            "arrival": "09:38",
+            "departure": "09:41"
+          },
+          {
+            "station": "松山",
+            "arrival": "09:47",
+            "departure": "09:48"
+          },
+          {
+            "station": "花蓮",
+            "arrival": "11:53",
+            "departure": "11:57"
+          },
+          {
+            "station": "鳳林",
+            "arrival": "12:19",
+            "departure": "12:21"
+          },
+          {
+            "station": "光復",
+            "arrival": "12:29",
+            "departure": "12:31"
+          },
+          {
+            "station": "瑞穗",
+            "arrival": "12:43",
+            "departure": "12:45"
+          },
+          {
+            "station": "玉里",
+            "arrival": "13:07",
+            "departure": "13:09"
+          },
+          {
+            "station": "池上",
+            "arrival": "13:25",
+            "departure": "13:26"
+          },
+          {
+            "station": "關山",
+            "arrival": "13:36",
+            "departure": "13:42"
+          },
+          {
+            "station": "臺東",
+            "arrival": "14:06",
+            "departure": "14:06"
+          }
+        ],
+        "太魯閣(太魯閣)"
+      ],
+      [
         "5370",
         5370,
         "10/09",
@@ -2615,7 +2688,7 @@
     ]
   },
   "2026-10-10": {
-    "last_modified": "Fri, 02 Oct 2026 21:49:16 GMT",
+    "last_modified": "Thu, 08 Oct 2026 23:39:17 GMT",
     "results": [
       [
         "5242",
@@ -2749,6 +2822,122 @@
         "自強(3000)(EMU3000 型電車)"
       ],
       [
+        "5311",
+        5311,
+        "10/10",
+        "新左營",
+        "15:40",
+        "臺東",
+        "18:15",
+        "+",
+        [
+          {
+            "station": "新左營",
+            "arrival": "15:40",
+            "departure": "15:40"
+          },
+          {
+            "station": "高雄",
+            "arrival": "15:48",
+            "departure": "15:50"
+          },
+          {
+            "station": "鳳山",
+            "arrival": "15:55",
+            "departure": "15:56"
+          },
+          {
+            "station": "屏東",
+            "arrival": "16:06",
+            "departure": "16:08"
+          },
+          {
+            "station": "潮州",
+            "arrival": "16:18",
+            "departure": "16:19"
+          },
+          {
+            "station": "枋寮",
+            "arrival": "16:43",
+            "departure": "16:46"
+          },
+          {
+            "station": "太麻里",
+            "arrival": "17:49",
+            "departure": "17:51"
+          },
+          {
+            "station": "知本",
+            "arrival": "18:00",
+            "departure": "18:03"
+          },
+          {
+            "station": "臺東",
+            "arrival": "18:15",
+            "departure": "18:15"
+          }
+        ],
+        "普悠瑪(普悠瑪)"
+      ],
+      [
+        "5312",
+        5312,
+        "10/10",
+        "臺東",
+        "21:30",
+        "新左營",
+        "23:48",
+        "+",
+        [
+          {
+            "station": "臺東",
+            "arrival": "21:30",
+            "departure": "21:30"
+          },
+          {
+            "station": "知本",
+            "arrival": "21:39",
+            "departure": "21:40"
+          },
+          {
+            "station": "太麻里",
+            "arrival": "21:49",
+            "departure": "21:50"
+          },
+          {
+            "station": "枋寮",
+            "arrival": "22:46",
+            "departure": "22:48"
+          },
+          {
+            "station": "潮州",
+            "arrival": "23:05",
+            "departure": "23:07"
+          },
+          {
+            "station": "屏東",
+            "arrival": "23:17",
+            "departure": "23:19"
+          },
+          {
+            "station": "鳳山",
+            "arrival": "23:29",
+            "departure": "23:30"
+          },
+          {
+            "station": "高雄",
+            "arrival": "23:35",
+            "departure": "23:38"
+          },
+          {
+            "station": "新左營",
+            "arrival": "23:48",
+            "departure": "23:48"
+          }
+        ],
+        "普悠瑪(普悠瑪)"
+      ],
+      [
         "5371",
         5371,
         "10/10",
@@ -2864,7 +3053,7 @@
     ]
   },
   "2026-10-11": {
-    "last_modified": "Wed, 07 Oct 2026 22:39:25 GMT",
+    "last_modified": "Thu, 08 Oct 2026 23:39:17 GMT",
     "results": [
       [
         "5105",
@@ -4333,7 +4522,7 @@
     ]
   },
   "2026-10-12": {
-    "last_modified": "Thu, 01 Oct 2026 00:00:14 GMT",
+    "last_modified": "Thu, 08 Oct 2026 23:39:17 GMT",
     "results": [
       [
         "230",
@@ -4547,47 +4736,47 @@
     ]
   },
   "2026-10-13": {
-    "last_modified": "Thu, 01 Oct 2026 00:00:14 GMT",
+    "last_modified": "Thu, 08 Oct 2026 23:39:17 GMT",
     "results": []
   },
   "2026-10-14": {
-    "last_modified": "Thu, 01 Oct 2026 00:00:14 GMT",
+    "last_modified": "Thu, 08 Oct 2026 23:39:17 GMT",
     "results": []
   },
   "2026-10-15": {
-    "last_modified": "Thu, 01 Oct 2026 00:00:14 GMT",
+    "last_modified": "Thu, 08 Oct 2026 23:39:17 GMT",
     "results": []
   },
   "2026-10-16": {
-    "last_modified": "Thu, 01 Oct 2026 00:00:14 GMT",
+    "last_modified": "Thu, 08 Oct 2026 23:39:17 GMT",
     "results": []
   },
   "2026-10-17": {
-    "last_modified": "Thu, 01 Oct 2026 00:00:14 GMT",
+    "last_modified": "Thu, 08 Oct 2026 23:39:17 GMT",
     "results": []
   },
   "2026-10-18": {
-    "last_modified": "Fri, 02 Oct 2026 01:00:26 GMT",
+    "last_modified": "Thu, 08 Oct 2026 23:39:17 GMT",
     "results": []
   },
   "2026-10-19": {
-    "last_modified": "Thu, 01 Oct 2026 00:00:14 GMT",
+    "last_modified": "Thu, 08 Oct 2026 23:39:17 GMT",
     "results": []
   },
   "2026-10-20": {
-    "last_modified": "Thu, 01 Oct 2026 00:00:14 GMT",
+    "last_modified": "Thu, 08 Oct 2026 23:39:17 GMT",
     "results": []
   },
   "2026-10-21": {
-    "last_modified": "Thu, 01 Oct 2026 00:00:14 GMT",
+    "last_modified": "Thu, 08 Oct 2026 23:39:17 GMT",
     "results": []
   },
   "2026-10-22": {
-    "last_modified": "Thu, 01 Oct 2026 00:00:14 GMT",
+    "last_modified": "Thu, 08 Oct 2026 23:39:17 GMT",
     "results": []
   },
   "2026-10-23": {
-    "last_modified": "Fri, 02 Oct 2026 21:49:16 GMT",
+    "last_modified": "Thu, 08 Oct 2026 23:39:17 GMT",
     "results": [
       [
         "4542",
@@ -5362,7 +5551,7 @@
     ]
   },
   "2026-10-24": {
-    "last_modified": "Fri, 02 Oct 2026 21:49:16 GMT",
+    "last_modified": "Thu, 08 Oct 2026 23:39:17 GMT",
     "results": [
       [
         "3039",
@@ -6830,7 +7019,7 @@
     ]
   },
   "2026-10-25": {
-    "last_modified": "Tue, 06 Oct 2026 00:49:18 GMT",
+    "last_modified": "Thu, 08 Oct 2026 23:39:17 GMT",
     "results": [
       [
         "3039",
@@ -7166,7 +7355,7 @@
     ]
   },
   "2026-10-26": {
-    "last_modified": "Wed, 07 Oct 2026 22:39:25 GMT",
+    "last_modified": "Thu, 08 Oct 2026 23:39:17 GMT",
     "results": [
       [
         "4540",
@@ -8932,7 +9121,7 @@
     ]
   },
   "2026-10-27": {
-    "last_modified": "Thu, 01 Oct 2026 00:00:14 GMT",
+    "last_modified": "Thu, 08 Oct 2026 23:39:17 GMT",
     "results": [
       [
         "4542",
@@ -9259,107 +9448,107 @@
     ]
   },
   "2026-10-28": {
-    "last_modified": "Tue, 06 Oct 2026 00:49:18 GMT",
+    "last_modified": "Thu, 08 Oct 2026 23:39:17 GMT",
     "results": []
   },
   "2026-10-29": {
-    "last_modified": "Tue, 06 Oct 2026 00:49:18 GMT",
+    "last_modified": "Thu, 08 Oct 2026 23:39:17 GMT",
     "results": []
   },
   "2026-10-30": {
-    "last_modified": "Tue, 06 Oct 2026 00:49:18 GMT",
+    "last_modified": "Thu, 08 Oct 2026 23:39:17 GMT",
     "results": []
   },
   "2026-10-31": {
-    "last_modified": "Tue, 06 Oct 2026 00:49:18 GMT",
+    "last_modified": "Thu, 08 Oct 2026 23:39:17 GMT",
     "results": []
   },
   "2026-11-01": {
-    "last_modified": "Tue, 06 Oct 2026 00:49:18 GMT",
+    "last_modified": "Thu, 08 Oct 2026 23:39:17 GMT",
     "results": []
   },
   "2026-11-02": {
-    "last_modified": "Tue, 06 Oct 2026 00:49:18 GMT",
+    "last_modified": "Thu, 08 Oct 2026 23:39:17 GMT",
     "results": []
   },
   "2026-11-03": {
-    "last_modified": "Wed, 07 Oct 2026 22:39:25 GMT",
+    "last_modified": "Thu, 08 Oct 2026 23:39:17 GMT",
     "results": []
   },
   "2026-11-04": {
-    "last_modified": "Tue, 06 Oct 2026 00:49:18 GMT",
+    "last_modified": "Thu, 08 Oct 2026 23:39:17 GMT",
     "results": []
   },
   "2026-11-05": {
-    "last_modified": "Tue, 06 Oct 2026 00:49:18 GMT",
+    "last_modified": "Thu, 08 Oct 2026 23:39:17 GMT",
     "results": []
   },
   "2026-11-06": {
-    "last_modified": "Wed, 07 Oct 2026 22:39:25 GMT",
+    "last_modified": "Thu, 08 Oct 2026 23:39:17 GMT",
     "results": []
   },
   "2026-11-07": {
-    "last_modified": "Tue, 06 Oct 2026 00:49:18 GMT",
+    "last_modified": "Thu, 08 Oct 2026 23:39:17 GMT",
     "results": []
   },
   "2026-11-08": {
-    "last_modified": "Tue, 06 Oct 2026 00:49:18 GMT",
+    "last_modified": "Thu, 08 Oct 2026 23:39:17 GMT",
     "results": []
   },
   "2026-11-09": {
-    "last_modified": "Tue, 06 Oct 2026 00:49:18 GMT",
+    "last_modified": "Thu, 08 Oct 2026 23:39:17 GMT",
     "results": []
   },
   "2026-11-10": {
-    "last_modified": "Tue, 06 Oct 2026 00:49:18 GMT",
+    "last_modified": "Thu, 08 Oct 2026 23:39:17 GMT",
     "results": []
   },
   "2026-11-11": {
-    "last_modified": "Tue, 06 Oct 2026 00:49:18 GMT",
+    "last_modified": "Thu, 08 Oct 2026 23:39:17 GMT",
     "results": []
   },
   "2026-11-12": {
-    "last_modified": "Tue, 06 Oct 2026 00:49:18 GMT",
+    "last_modified": "Thu, 08 Oct 2026 23:39:17 GMT",
     "results": []
   },
   "2026-11-13": {
-    "last_modified": "Tue, 06 Oct 2026 00:49:18 GMT",
+    "last_modified": "Thu, 08 Oct 2026 23:39:17 GMT",
     "results": []
   },
   "2026-11-14": {
-    "last_modified": "Tue, 06 Oct 2026 00:49:18 GMT",
+    "last_modified": "Thu, 08 Oct 2026 23:39:17 GMT",
     "results": []
   },
   "2026-11-15": {
-    "last_modified": "Tue, 06 Oct 2026 00:49:18 GMT",
+    "last_modified": "Thu, 08 Oct 2026 23:39:17 GMT",
     "results": []
   },
   "2026-11-16": {
-    "last_modified": "Tue, 06 Oct 2026 00:49:18 GMT",
+    "last_modified": "Thu, 08 Oct 2026 23:39:17 GMT",
     "results": []
   },
   "2026-11-17": {
-    "last_modified": "Tue, 06 Oct 2026 00:49:18 GMT",
+    "last_modified": "Thu, 08 Oct 2026 23:39:17 GMT",
     "results": []
   },
   "2026-11-18": {
-    "last_modified": "Tue, 06 Oct 2026 00:49:18 GMT",
+    "last_modified": "Thu, 08 Oct 2026 23:39:17 GMT",
     "results": []
   },
   "2026-11-19": {
-    "last_modified": "Tue, 06 Oct 2026 00:49:18 GMT",
+    "last_modified": "Thu, 08 Oct 2026 23:39:17 GMT",
     "results": []
   },
   "2026-11-20": {
-    "last_modified": "Tue, 06 Oct 2026 00:49:18 GMT",
+    "last_modified": "Thu, 08 Oct 2026 23:39:17 GMT",
     "results": []
   },
   "2026-11-21": {
-    "last_modified": "Tue, 06 Oct 2026 00:49:18 GMT",
+    "last_modified": "Thu, 08 Oct 2026 23:39:17 GMT",
     "results": []
   },
   "2026-11-22": {
-    "last_modified": "Tue, 06 Oct 2026 00:49:18 GMT",
+    "last_modified": "Thu, 08 Oct 2026 23:39:17 GMT",
     "results": []
   }
 }
